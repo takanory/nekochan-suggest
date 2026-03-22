@@ -61,7 +61,8 @@ MVP となる。
 - Ollama サーバーが起動していない場合、接続エラーメッセージと起動方法のヒントを
   stderr に出力して終了コード 1 で終了する。
 - Ollama が 200 OK を返すのに応答 JSON の構造が想定外（`embedding` キーなし・空配列等）の場合、
-  パースエラーとして扱い、原因ヒント付きメッセージ（例: `ollama pull nomic-embed-text` の確認を促す文言）を
+  `ollama` パッケージが例外を漏らすかもしくは不正なベクトルを返す。
+  いずれの場合もエラーとして捕捉し、原因ヒント付きメッセージ（例: `ollama pull nomic-embed-text` の確認を促す文言）を
   stderr に出力して終了コード 1 で終了する。
 - LLM の応答がタイムアウトした場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
 - 日本語以外の文章（英語等）を渡した場合も正常に動作する。
@@ -107,9 +108,8 @@ MVP となる。
   上位 N 件を返す。
 - **FR-011**: アノテーションファイルが存在しない場合、`build-annotations` の実行を促す
   エラーメッセージを stderr に出力しなければならない。
-- **FR-012**: 埋め込み生成には Ollama Embeddings API（`/api/embeddings`）を使用しなければならない。
-  デフォルト埋め込みモデルは `nomic-embed-text`。Ollama への通信には Python 標準ライブラリの
-  `urllib` を使用し、追加 PyPI 依存は不要とする。
+- **FR-012**: 埋め込み生成には `ollama` PyPI パッケージを使用しなければならない。
+  デフォルト埋め込みモデルは `nomic-embed-text`。
   コサイン類似度の計算は Python 標準ライブラリ（`math` モジュール）のみで実装し、
   numpy 等の追加 PyPI 依存を使用してはならない。378 件程度のエントリ数であれば
   純 Python 実装でも SC-001（1 秒以内）を達成できる。
@@ -173,21 +173,23 @@ MVP となる。
 - Ollama はローカルに別途インストール・起動済みであること（本フィーチャーの範囲外）。
 - デフォルト埋め込みモデルは `nomic-embed-text`（`ollama pull nomic-embed-text` で取得）。
 - デフォルト Ollama エンドポイントは `http://localhost:11434`。
-- 本フィーチャーで追加する PyPI 依存は **ゼロ**。すべての処理に Python 標準ライブラリのみを使用する。
+- 本フィーチャーで追加する PyPI 依存は `ollama` のみ。それ以外の処理には Python 標準ライブラリのみを使用する。
 - 設定ファイルが存在しない場合、すべてデフォルト値を使用して正常動作する。
 - アノテーションはすべて英語で保存されているため、日本語・英語の両方のクエリに対応できる。
 - アノテーションファイルの `embedding` フィールドが欠損しているレコードはスキップする。
 - 本フィーチャーは `query.py` モジュールにビジネスロジックを実装し、`cli.py` からは
   ライブラリ関数として呼び出す形で設計する（GUI 連携を考慮）。
 - 単体テストは `tests/fixtures/` に配置した小規模ダミー annotations.json フィクスチャと
-  `unittest.mock` を用いた Ollama HTTP 呼び出しのモックで実施する。CI 上で Ollama 不要とし、
+  `unittest.mock` を用いた `ollama` パッケージ呼び出しのモックで実施する。CI 上で Ollama 不要とし、
   コサイン類似度計算等の純 Python ロジックを決定論的にテストできる。
 - `query.py` の公開 API は `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約する。
   内部機能（`load_annotations`・`embed_text`・`cosine_similarity`）はモジュール内部関数として分離し、許可なく公開 API としない。
 
 ## 明確化セッション
 
-### セッション 2026-03-22 (3)
+### セッション 2026-03-22 (4)
+
+- Q: Ollama への通信に `ollama` PyPI パッケージを使用するか、`urllib` で直接 HTTP 呼び出しをするか → A: `ollama` PyPI パッケージを追加して使用する（コサイン類似度計算は引き続き純 Python）
 
 - Q: `annotations.json` のトップレベル JSON 構造 → A: 配列（`[{"name": "yatta-nya", "annotation": "...", "embedding": [...]}]`）
 - Q: `--json` 出力の `score` 値のフォーマット → A: 生の浮動小数点（丸めなし、例: `0.8734567`）
@@ -195,7 +197,7 @@ MVP となる。
 - Q: `QueryInput` をコード型として実装するか → A: 概念的ドキュメントのみ（`suggest()` は個別引数 `text, count, timeout` で呼び出す、`json_mode` は CLI 層が処理）
 - Q: 空白のみ文章（`"   "` 等）を渡した場合の挙動 → A: strip 後に空なら `Error: text is empty.` を stderr に出力して終了コード 1
 
-- Q: 単体テストで Ollama に依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で Ollama HTTP 呼び出しをモック（CI で Ollama 不要）
+- Q: 単体テストで Ollama に依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で `ollama` パッケージ呼び出しをモック（CI で Ollama 不要）
 - Q: `query.py` の公開 API の粒度 → A: `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約し、内部機能は非公開
 - Q: エラーメッセージの言語 → A: 英語（例: `Error: annotations file not found.`）
 - Q: `SuggestionResult` の Python 型表現 → A: `dataclass`（`result.name`・`result.score` でアクセス）
@@ -205,4 +207,4 @@ MVP となる。
 - Q: `--count N` がアノテーションファイルの実際エントリ数を超えた場合の挙動 → A: 利用可能な件数をすべて返す（エラーなし・警告なし）
 - Q: 設定ファイル（config.toml）の TOML キー名の構造 → A: フラット構造（`ollama_url`、`embed_model`、`llm_model`、`timeout`）
 - Q: SC-002（80%以上の提案精度）の検証方法 → A: 手動検証（5文のクエリと期待ファイル名をチェックリスト定義、CI 外で実施）
-- Q: Ollama が 200 OK を返すのに応答 JSON 構造が想定外の場合の挙動 → A: パースエラーとして扱い、原因ヒント付きメッセージを stderr に出力して終了コード 1
+- Q: Ollama が 200 OK を返すのに応答 JSON 構造が想定外の場合の挙動 → A: `ollama` パッケージの例外として捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1
