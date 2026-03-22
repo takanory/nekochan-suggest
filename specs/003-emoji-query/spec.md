@@ -119,7 +119,7 @@ MVP となる。
   TOML キーはフラット構造とし、以下のキーを使用する:
   - `ollama_url`: Ollama エンドポイント（デフォルト: `http://localhost:11434`）
   - `embed_model`: 埋め込みモデル名（デフォルト: `nomic-embed-text`）
-  - `llm_model`: LLM モデル名（デフォルト: `qwen2.5`）
+  - `llm_model`: LLM モデル名（デフォルト: `qwen3.5`）
   - `timeout`: タイムアウト秒数（デフォルト: 30）
   環境変数の各名称と対応する config.toml キーは以下の通り:
   - `NEKOCHAN_OLLAMA_URL` → `ollama_url`
@@ -189,8 +189,7 @@ MVP となる。
 
 ### セッション 2026-03-22 (4)
 
-- Q: Ollama への通信に `ollama` PyPI パッケージを使用するか、`urllib` で直接 HTTP 呼び出しをするか → A: `ollama` PyPI パッケージを追加して使用する（コサイン類似度計算は引き続き純 Python）
-
+- Q: Ollama への通信に `ollama` PyPI パッケージを使用するか、`urllib` で直接 HTTP 呼び出しをするか → A: `ollama` PyPI パッケージを追加して使用する（コサイン類似度計算は引き続き純 Python）- Q: デフォルト LLM モデル → A: `qwen3.5`（`qwen2.5` から変更）
 - Q: `annotations.json` のトップレベル JSON 構造 → A: 配列（`[{"name": "yatta-nya", "annotation": "...", "embedding": [...]}]`）
 - Q: `--json` 出力の `score` 値のフォーマット → A: 生の浮動小数点（丸めなし、例: `0.8734567`）
 - Q: LLM モデル名の環境変数名 → A: `NEKOCHAN_LLM_MODEL`（config.toml の `llm_model` キーと対称）
