@@ -66,6 +66,8 @@ MVP となる。
 - `--timeout` を省略した場合、デフォルト 30 秒でタイムアウトする。
 - `NEKOCHAN_TIMEOUT` 環境変数が設定されており `--timeout` が未指定の場合、
   環境変数の値をタイムアウト秒数として使用する。`--timeout` が指定された場合は `--timeout` が優先される。
+- `NEKOCHAN_TIMEOUT` に整数でない値（例: `"abc"`、`"3.5"`）が設定されていた場合、
+  `Error: NEKOCHAN_TIMEOUT must be a positive integer.` を stderr に出力して終了コード 1 で終了する。
 - アノテーションファイル内の `embedding` フィールドが欠損しているレコードはスキップする。
 
 ---
@@ -88,6 +90,7 @@ MVP となる。
   （例: `1. yatta-nya  0.87`。スコアは小数点以下 2 桁固定）。
 - **FR-006**: エラー（空入力・バリデーション違反・Ollama 接続失敗・アノテーション未生成・タイムアウト等）は
   stderr に出力し、終了コード 1 で終了しなければならない。
+  エラーメッセージはすべて英語で出力する（例: `Error: annotations file not found. Run 'nekochan-suggest build-annotations' first.`）。
 - **FR-007**: クエリ処理には、事前生成済みのアノテーションファイル
   （`~/.local/share/nekochan-suggest/annotations.json`）を使用しなければならない。
   ファイルの読み込みには Python 標準ライブラリの `json` モジュールを使用する。
@@ -124,6 +127,7 @@ MVP となる。
   - `annotation`: LLM が生成した英語の説明テキスト
   - `embedding`: annotation から生成した埋め込みベクトル（浮動小数点の配列）
 - **SuggestionResult（提案結果の 1 件）**:
+  - Python 実装: `dataclass`（`result.name`・`result.score` でアクセス）
   - `name`: 画像ファイル名
   - `score`: コサイン類似度スコア（0〜1 の浮動小数点、小数点以下 2 桁で表示）
 - **QueryInput（ユーザー入力）**:
@@ -166,10 +170,21 @@ MVP となる。
 - アノテーションファイルの `embedding` フィールドが欠損しているレコードはスキップする。
 - 本フィーチャーは `query.py` モジュールにビジネスロジックを実装し、`cli.py` からは
   ライブラリ関数として呼び出す形で設計する（GUI 連携を考慮）。
+- 単体テストは `tests/fixtures/` に配置した小規模ダミー annotations.json フィクスチャと
+  `unittest.mock` を用いた Ollama HTTP 呼び出しのモックで実施する。CI 上で Ollama 不要とし、
+  コサイン類似度計算等の純 Python ロジックを決定論的にテストできる。
+- `query.py` の公開 API は `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約する。
+  内部機能（`load_annotations`・`embed_text`・`cosine_similarity`）はモジュール内部関数として分離し、許可なく公開 API としない。
 
 ## 明確化セッション
 
-### セッション 2026-03-22
+### セッション 2026-03-22 (2)
+
+- Q: 単体テストで Ollama に依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で Ollama HTTP 呼び出しをモック（CI で Ollama 不要）
+- Q: `query.py` の公開 API の粒度 → A: `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約し、内部機能は非公開
+- Q: エラーメッセージの言語 → A: 英語（例: `Error: annotations file not found.`）
+- Q: `SuggestionResult` の Python 型表現 → A: `dataclass`（`result.name`・`result.score` でアクセス）
+- Q: `NEKOCHAN_TIMEOUT` に整数でない値が設定された場合の挙動 → A: `Error: NEKOCHAN_TIMEOUT must be a positive integer.` を stderr に出力して終了コード 1
 
 - Q: コサイン類似度の計算に numpy を追加するか、純 Python（stdlib のみ）で実装するか → A: 純 Python（math モジュール使用、追加依存なし）
 - Q: `--count N` がアノテーションファイルの実際エントリ数を超えた場合の挙動 → A: 利用可能な件数をすべて返す（エラーなし・警告なし）
