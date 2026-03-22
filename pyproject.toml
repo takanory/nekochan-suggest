@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nekochan-suggest"
+version = "0.1.0"
+description = "文章に対してネコチャン絵文字を提案するCLIツール"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[project.scripts]
+nekochan-suggest = "nekochan_suggest.cli:main"
+nekochan-suggest-ui = "nekochan_suggest.ui:main"
+
+[project.optional-dependencies]
+gui = ["streamlit"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.9",
+    "pyrefly>=0.19",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP"]
+
+[tool.pyrefly]
+project-includes = [
+    "nekochan_suggest/**/*.py",
+    "tests/**/*.py",
+]
