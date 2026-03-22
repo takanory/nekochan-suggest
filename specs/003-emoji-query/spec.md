@@ -51,6 +51,8 @@ MVP となる。
 ### エッジケース
 
 - 空文字列を渡した場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
+- 空白のみの文章（例: `"   "`・`"\t\n"`）を渡した場合、strip 後に空文字列として扱い、
+  `Error: text is empty.` を stderr に出力して終了コード 1 で終了する（入力は Ollama に送らない）。
 - 1000 文字超の文章を渡した場合、文字数制限エラーを stderr に出力して終了コード 1 で終了する。
 - `--count 0` や負数を渡した場合、バリデーションエラーを stderr に出力して終了コード 1 で終了する。
 - `--count` を省略した場合、デフォルト 3 件を返す。
@@ -85,7 +87,8 @@ MVP となる。
   範囲外の値（0 以下または 11 以上）を指定した場合はバリデーションエラーとする。
   N がアノテーションファイルの実際のエントリ数を超える場合は、利用可能な件数をすべて返す（エラーなし・警告なし）。
 - **FR-005**: `--json` フラグを指定すると、結果を JSON 形式で標準出力に出力しなければならない
-  （`{"suggestions": [{"name": "...", "score": 0.87}]}`）。
+  （`{"suggestions": [{"name": "...", "score": 0.8734567}]}`）。
+  JSON 出力の `score` 値は丸めなしの生の浮動小数点とする。
   `--json` なしのテキスト出力は `N. <ファイル名>  <スコア>` 形式とする
   （例: `1. yatta-nya  0.87`。スコアは小数点以下 2 桁固定）。
 - **FR-006**: エラー（空入力・バリデーション違反・Ollama 接続失敗・アノテーション未生成・タイムアウト等）は
@@ -94,6 +97,7 @@ MVP となる。
 - **FR-007**: クエリ処理には、事前生成済みのアノテーションファイル
   （`~/.local/share/nekochan-suggest/annotations.json`）を使用しなければならない。
   ファイルの読み込みには Python 標準ライブラリの `json` モジュールを使用する。
+  ファイルのトップレベル構造は配列（`[{...}, ...]`）とする。
 - **FR-008**: 標準入力からのパイプ入力（`echo "文章" | nekochan-suggest`）をサポートしなければならない。
 - **FR-009**: LLM 応答のタイムアウト時間を設定できなければならない。デフォルトは 30 秒とし、
   `--timeout N`（秒単位）オプションまたは環境変数 `NEKOCHAN_TIMEOUT` で上書き可能とする。
@@ -110,19 +114,24 @@ MVP となる。
   numpy 等の追加 PyPI 依存を使用してはならない。378 件程度のエントリ数であれば
   純 Python 実装でも SC-001（1 秒以内）を達成できる。
 - **FR-013**: 設定ファイル（`~/.config/nekochan-suggest/config.toml`、TOML 形式）または
-  環境変数（`NEKOCHAN_EMBED_MODEL`、`NEKOCHAN_OLLAMA_URL` 等）でモデル・接続先を
-  変更できなければならない。設定ファイルの読み込みには Python 標準ライブラリの `tomllib` を使用する。
+  以下の環境変数でモデル・接続先を変更できなければならない。設定ファイルの読み込みには Python 標準ライブラリの `tomllib` を使用する。
   設定ファイルが存在しない場合はデフォルト値を使用する。
   TOML キーはフラット構造とし、以下のキーを使用する:
   - `ollama_url`: Ollama エンドポイント（デフォルト: `http://localhost:11434`）
   - `embed_model`: 埋め込みモデル名（デフォルト: `nomic-embed-text`）
   - `llm_model`: LLM モデル名（デフォルト: `qwen2.5`）
   - `timeout`: タイムアウト秒数（デフォルト: 30）
+  環境変数の各名称と対応する config.toml キーは以下の通り:
+  - `NEKOCHAN_OLLAMA_URL` → `ollama_url`
+  - `NEKOCHAN_EMBED_MODEL` → `embed_model`
+  - `NEKOCHAN_LLM_MODEL` → `llm_model`
+  - `NEKOCHAN_TIMEOUT` → `timeout`
   環境変数は設定ファイル値より優先され、`--timeout` CLI オプションは環境変数・設定ファイルのどちらよりも優先される。
 
 ### キーエンティティ
 
 - **NekochanEmoji（アノテーションファイル内の 1 レコード）**:
+  - ファイル全体のトップレベル構造: 配列（`[{...}, ...]`）
   - `name`: 画像ファイル名（例: `yatta-nya`）
   - `annotation`: LLM が生成した英語の説明テキスト
   - `embedding`: annotation から生成した埋め込みベクトル（浮動小数点の配列）
@@ -130,11 +139,11 @@ MVP となる。
   - Python 実装: `dataclass`（`result.name`・`result.score` でアクセス）
   - `name`: 画像ファイル名
   - `score`: コサイン類似度スコア（0〜1 の浮動小数点、小数点以下 2 桁で表示）
-- **QueryInput（ユーザー入力）**:
+- **QueryInput（入力パラメータの概念的記述 — コード上の型としては実装しない）**:
   - `text`: 提案を求める文章（1 文字以上・1000 文字以下）
   - `count`: 候補数（1〜10、デフォルト 3）
-  - `json_mode`: JSON 形式で出力するフラグ
   - `timeout`: タイムアウト秒数（デフォルト 30）
+  - `json_mode`: 標準出力のフォーマットを CLI 層で切り替えるフラグ（`suggest()` には渡さず CLI 層で処理）
 
 ---
 
@@ -178,7 +187,13 @@ MVP となる。
 
 ## 明確化セッション
 
-### セッション 2026-03-22 (2)
+### セッション 2026-03-22 (3)
+
+- Q: `annotations.json` のトップレベル JSON 構造 → A: 配列（`[{"name": "yatta-nya", "annotation": "...", "embedding": [...]}]`）
+- Q: `--json` 出力の `score` 値のフォーマット → A: 生の浮動小数点（丸めなし、例: `0.8734567`）
+- Q: LLM モデル名の環境変数名 → A: `NEKOCHAN_LLM_MODEL`（config.toml の `llm_model` キーと対称）
+- Q: `QueryInput` をコード型として実装するか → A: 概念的ドキュメントのみ（`suggest()` は個別引数 `text, count, timeout` で呼び出す、`json_mode` は CLI 層が処理）
+- Q: 空白のみ文章（`"   "` 等）を渡した場合の挙動 → A: strip 後に空なら `Error: text is empty.` を stderr に出力して終了コード 1
 
 - Q: 単体テストで Ollama に依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で Ollama HTTP 呼び出しをモック（CI で Ollama 不要）
 - Q: `query.py` の公開 API の粒度 → A: `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約し、内部機能は非公開
