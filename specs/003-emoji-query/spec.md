@@ -43,7 +43,7 @@ MVP となる。
 
 5. **Given** `--json "おはよう"` と指定する、
    **When** 実行する、
-   **Then** `{"suggestions": [{"name": "...", "score": 0.87}]}` 形式の
+   **Then** `{"suggestions": [{"name": "...", "score": 0.8734567}]}` 形式の
    有効な JSON が標準出力に出力される。
 
 ---
@@ -183,7 +183,7 @@ MVP となる。
   `unittest.mock` を用いた `ollama` パッケージ呼び出しのモックで実施する。CI 上で Ollama 不要とし、
   コサイン類似度計算等の純 Python ロジックを決定論的にテストできる。
 - `query.py` の公開 API は `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約する。
-  内部機能（`load_annotations`・`embed_text`・`cosine_similarity`）はモジュール内部関数として分離し、許可なく公開 API としない。
+  内部機能（`_load_annotations`・`_embed_text`・`_cosine_similarity`）はモジュール内部関数として分離し、許可なく公開 API としない。
 
 ## 明確化セッション
 
