@@ -20,7 +20,7 @@
    uv sync
    ```
 
-3. **インターネット接続（初回起動時のみ）**: デフォルトモデル `all-MiniLM-L6-v2` の初回起動時に Hugging Face Hub から自動ダウンロードされる。以降はキャッシュから読み込み（オフライン利用可能）。
+3. **インターネット接続（初回起動時のみ）**: デフォルトモデル `intfloat/multilingual-e5-base` の初回起動時に Hugging Face Hub から自動ダウンロードされる。以降はキャッシュから読み込み（オフライン利用可能）。
 
 ---
 
@@ -82,7 +82,7 @@ nekochan-suggest --json "眠い"
 デフォルト値を変更できる:
 
 ```toml
-embed_model = "all-MiniLM-L6-v2"
+embed_model = "intfloat/multilingual-e5-base"
 llm_model = "qwen3.5"
 timeout = 60
 ```
@@ -90,7 +90,7 @@ timeout = 60
 環境変数でも設定可能（環境変数が設定ファイルより優先される）:
 
 ```bash
-export NEKOCHAN_EMBED_MODEL="all-MiniLM-L6-v2"
+export NEKOCHAN_EMBED_MODEL="intfloat/multilingual-e5-base"
 export NEKOCHAN_TIMEOUT=60
 ```
 

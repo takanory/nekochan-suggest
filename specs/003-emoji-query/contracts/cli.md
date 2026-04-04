@@ -102,7 +102,7 @@ nekochan-suggest [OPTIONS] [TEXT]
 
 | 変数 | 対応設定キー | デフォルト値 | 説明 |
 |------|------------|------------|------|
-| `NEKOCHAN_EMBED_MODEL` | `embed_model` | `all-MiniLM-L6-v2` | 埋め込みモデル名 |
+| `NEKOCHAN_EMBED_MODEL` | `embed_model` | `intfloat/multilingual-e5-base` | 埋め込みモデル名 |
 | `NEKOCHAN_LLM_MODEL` | `llm_model` | `qwen3.5` | LLM モデル名（build-annotations 用） |
 | `NEKOCHAN_TIMEOUT` | `timeout` | `30` | タイムアウト秒数（正の整数のみ） |
 

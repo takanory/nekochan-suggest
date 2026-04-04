@@ -104,7 +104,7 @@ class SuggestionResult:
 
 | キー | env var | config.toml キー | デフォルト値 |
 |------|---------|-----------------|------------|
-| `embed_model` | `NEKOCHAN_EMBED_MODEL` | `embed_model` | `all-MiniLM-L6-v2` |
+| `embed_model` | `NEKOCHAN_EMBED_MODEL` | `embed_model` | `intfloat/multilingual-e5-base` |
 | `llm_model` | `NEKOCHAN_LLM_MODEL` | `llm_model` | `qwen3.5` |
 | `timeout` | `NEKOCHAN_TIMEOUT` | `timeout` | `30` |
 

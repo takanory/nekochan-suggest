@@ -16,7 +16,8 @@
 from sentence_transformers import SentenceTransformer
 
 model = SentenceTransformer(embed_model)
-vector: list[float] = model.encode(text).tolist()
+# multilingual-e5 モデルはクエリに "query: " プレフィックスを付与すると精度向上
+vector: list[float] = model.encode("query: " + text).tolist()
 ```
 
 ### 理由
@@ -24,7 +25,8 @@ vector: list[float] = model.encode(text).tolist()
 - ローカル推論のみで動作し、外部サーバー（Ollama 等）不要。
 - `encode()` は `numpy.ndarray` を返すため `.tolist()` で `list[float]` に変換する。
 - モデルは初回実行時に Hugging Face Hub から自動ダウンロードされ、以降はキャッシュから読み込む。
-- デフォルトモデル `all-MiniLM-L6-v2` は 768 次元・高速・軽量で本用途に適している。
+- デフォルトモデル `intfloat/multilingual-e5-base` は 768 次元・多言語対応で日本語クエリに適している。
+- **入力プレフィックス**: `multilingual-e5` モデルはクエリ時に `"query: "` プレフィックスを付与することで精度が向上する。本実装では `encode("query: " + text)` として呼び出す。
 
 ### 検討した代替案
 
@@ -66,10 +68,10 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 ### パフォーマンス見積もり
 
-- `all-MiniLM-L6-v2` の次元数: 384（`sentence-transformers` のデフォルト）
+- `intfloat/multilingual-e5-base` の次元数: 768
 - エントリ数: ~378 件
-- 1 件あたりの演算: ~1,152 回の浮動小数点演算（ドット積 384 + ノルム計算 384×2）
-- 合計: 約 44 万回の浮動小数点演算
+- 1 件あたりの演算: ~2,304 回の浮動小数点演算（ドット積 768 + ノルム計算 768×2）
+- 合計: 約 87 万回の浮動小数点演算
 - Python での実行時間: 数ミリ秒以内（SC-001 の 1 秒制約を十分に満たす）
 
 ### 検討した代替案
@@ -109,7 +111,7 @@ def _load_config() -> dict:
 ### フラットな TOML 構造
 
 ```toml
-embed_model = "all-MiniLM-L6-v2"
+embed_model = "intfloat/multilingual-e5-base"
 llm_model = "qwen3.5"
 timeout = 30
 ```
