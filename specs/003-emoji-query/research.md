@@ -16,7 +16,9 @@
 from sentence_transformers import SentenceTransformer
 
 model = SentenceTransformer(embed_model)
-# multilingual-e5 モデルはクエリに "query: " プレフィックスを付与すると精度向上
+# multilingual-e5 非対称検索プレフィックス（公式推奨）:
+#   クエリ側 (query.py):       encode("query: " + text)
+#   文書側  (build-annotations): encode("passage: " + annotation)
 vector: list[float] = model.encode("query: " + text).tolist()
 ```
 
@@ -26,7 +28,7 @@ vector: list[float] = model.encode("query: " + text).tolist()
 - `encode()` は `numpy.ndarray` を返すため `.tolist()` で `list[float]` に変換する。
 - モデルは初回実行時に Hugging Face Hub から自動ダウンロードされ、以降はキャッシュから読み込む。
 - デフォルトモデル `intfloat/multilingual-e5-base` は 768 次元・多言語対応で日本語クエリに適している。
-- **入力プレフィックス**: `multilingual-e5` モデルはクエリ時に `"query: "` プレフィックスを付与することで精度が向上する。本実装では `encode("query: " + text)` として呼び出す。
+- **入力プレフィックス（非対称検索）**: クエリ側は `"query: " + text`、アノテーション側（build-annotations）は `"passage: " + annotation` を使用する。この非対称設計により e5 モデルの意味空間が最大限に活用される。
 
 ### 検討した代替案
 

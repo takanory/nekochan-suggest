@@ -107,6 +107,9 @@ MVP となる。
   エラーメッセージを stderr に出力しなければならない。
 - **FR-012**: 埋め込み生成には `sentence-transformers` PyPI パッケージを使用しなければならない。
   デフォルト埋め込みモデルは `intfloat/multilingual-e5-base`（768 次元）。
+  埋め込み生成時には非対称検索（asymmetric search）のプレフィックス規約に従う:
+  - クエリテキストのエンコード: `"query: " + text`
+  - アノテーションのエンコード（build-annotations 側）: `"passage: " + annotation`
   コサイン類似度の計算は Python 標準ライブラリ（`math` モジュール）のみで実装し、
   numpy 等の追加 PyPI 依存をコサイン計算に使用してはならない。378 件程度のエントリ数であれば
   純 Python 実装でも SC-001（1 秒以内）を達成できる。
@@ -170,6 +173,8 @@ MVP となる。
 - 本フィーチャーで追加するプロダクション PyPI 依存は `sentence-transformers` のみ（開発依存の `pytest-cov` は除く）。それ以外の処理には Python 標準ライブラリのみを使用する。
 - 設定ファイルが存在しない場合、すべてデフォルト値を使用して正常動作する。
 - アノテーションはすべて英語で保存されているため、日本語・英語の両方のクエリに対応できる。
+- `intfloat/multilingual-e5-base` モデルの非対称検索仙5様: クエリテキストには `"query: "` プレフィックス、アノテーション埋め込み（build-annotations 側）には `"passage: "` プレフィックスを付与する。
+  この検索時に `_embed_text()` 内で `"query: " + text` としてエンコードする。
 - アノテーションファイルの `embedding` フィールドが欠損しているレコードはスキップする。
 - 本フィーチャーは `query.py` モジュールにビジネスロジックを実装し、`cli.py` からは
   ライブラリ関数として呼び出す形で設計する（GUI 連携を考慮）。
@@ -201,3 +206,7 @@ MVP となる。
 - Q: 設定ファイル（config.toml）の TOML キー名の構造 → A: フラット構造（`embed_model`、`llm_model`、`timeout`）
 - Q: SC-002（80%以上の提案精度）の検証方法 → A: 手動検証（5文のクエリと期待ファイル名をチェックリスト定義、CI 外で実施）
 - Q: sentence-transformers のエンコードが不正な結果を返した場合の挙動 → A: 例外として捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1
+
+### セッション 2026-04-04
+
+- Q: `intfloat/multilingual-e5-base` モデルのエンコードプレフィックスの扱い—検索クエリとアノテーション（build-annotations）で同じプレフィックスを使うか → A: 非対称検索を採用。クエリ側は `"query: "` プレフィックス、アノテーション側（build-annotations）は `"passage: "` プレフィックスを付与する（e5 モデル公式推奨仕様）
