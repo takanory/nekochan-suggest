@@ -91,7 +91,7 @@ class SuggestionResult:
 ```
 入力テキスト (str)
     └─[バリデーション]─→ ValidatedText
-         └─[ollama.embed()]─→ QueryVector (list[float], 768 次元)
+         └─[SentenceTransformer.encode()]─→ QueryVector (list[float], 768 次元)
               └─[_cosine_similarity() × N件]─→ ScoredList (list[tuple[str, float]])
                    └─[上位 count 件選択]─→ list[SuggestionResult]
 ```
@@ -104,8 +104,7 @@ class SuggestionResult:
 
 | キー | env var | config.toml キー | デフォルト値 |
 |------|---------|-----------------|------------|
-| `ollama_url` | `NEKOCHAN_OLLAMA_URL` | `ollama_url` | `http://localhost:11434` |
-| `embed_model` | `NEKOCHAN_EMBED_MODEL` | `embed_model` | `nomic-embed-text` |
+| `embed_model` | `NEKOCHAN_EMBED_MODEL` | `embed_model` | `all-MiniLM-L6-v2` |
 | `llm_model` | `NEKOCHAN_LLM_MODEL` | `llm_model` | `qwen3.5` |
 | `timeout` | `NEKOCHAN_TIMEOUT` | `timeout` | `30` |
 

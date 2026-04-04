@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "文章に対してネコチャン絵文字を提案するCLIツール"
 readme = "README.md"
 requires-python = ">=3.11"
+dependencies = [
+    "sentence-transformers>=3.0",
+]
 
 [project.scripts]
 nekochan-suggest = "nekochan_suggest.cli:main"
@@ -21,6 +24,7 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.9",
     "pyrefly>=0.19",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.pytest.ini_options]

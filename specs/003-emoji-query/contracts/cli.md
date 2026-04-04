@@ -90,10 +90,9 @@ nekochan-suggest [OPTIONS] [TEXT]
 | エラー条件 | stderr メッセージ |
 |-----------|----------------|
 | アノテーションファイル未存在 | `Error: annotations file not found. Run 'nekochan-suggest build-annotations' first.` |
-| Ollama 接続失敗 | `Error: cannot connect to Ollama at {url}. Make sure Ollama is running.` |
-| Ollama レスポンス異常（`embedding` キーなし等） | `Error: unexpected response from Ollama. Check if 'ollama pull {model}' was run.` |
-| タイムアウト | `Error: request timed out after {N} seconds.` |
-| HTTP エラー | `Error: Ollama returned an error: {message}` |
+| モデルロード失敗 | `Error: failed to load embedding model '{model}'.` |
+| エンコード結果異常 | `Error: unexpected embedding result. Check embed_model setting.` |
+| タイムアウト（将来拡張用） | `Error: request timed out after {N} seconds.` |
 
 ---
 
@@ -103,8 +102,7 @@ nekochan-suggest [OPTIONS] [TEXT]
 
 | 変数 | 対応設定キー | デフォルト値 | 説明 |
 |------|------------|------------|------|
-| `NEKOCHAN_OLLAMA_URL` | `ollama_url` | `http://localhost:11434` | Ollama エンドポイント |
-| `NEKOCHAN_EMBED_MODEL` | `embed_model` | `nomic-embed-text` | 埋め込みモデル名 |
+| `NEKOCHAN_EMBED_MODEL` | `embed_model` | `all-MiniLM-L6-v2` | 埋め込みモデル名 |
 | `NEKOCHAN_LLM_MODEL` | `llm_model` | `qwen3.5` | LLM モデル名（build-annotations 用） |
 | `NEKOCHAN_TIMEOUT` | `timeout` | `30` | タイムアウト秒数（正の整数のみ） |
 

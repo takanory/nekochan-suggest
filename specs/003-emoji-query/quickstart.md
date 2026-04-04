@@ -7,31 +7,20 @@
 
 ## 前提条件
 
-1. **Ollama がインストール・起動済みであること**
-
-   ```bash
-   # Ollama の起動確認
-   curl http://localhost:11434/api/tags
-   ```
-
-2. **埋め込みモデルが取得済みであること**
-
-   ```bash
-   ollama pull nomic-embed-text
-   ```
-
-3. **アノテーションファイルが生成済みであること**
+1. **アノテーションファイルが生成済みであること**
 
    ```bash
    nekochan-suggest build-annotations
    # → ~/.local/share/nekochan-suggest/annotations.json が生成される
    ```
 
-4. **`ollama` PyPI パッケージが追加されていること**
+2. **`sentence-transformers` PyPI パッケージがインストール済みであること**（uv で管理する場合は自動インストール済み）
 
    ```bash
-   uv add ollama
+   uv sync
    ```
+
+3. **インターネット接続（初回起動時のみ）**: デフォルトモデル `all-MiniLM-L6-v2` の初回起動時に Hugging Face Hub から自動ダウンロードされる。以降はキャッシュから読み込み（オフライン利用可能）。
 
 ---
 
@@ -93,8 +82,7 @@ nekochan-suggest --json "眠い"
 デフォルト値を変更できる:
 
 ```toml
-ollama_url = "http://localhost:11434"
-embed_model = "nomic-embed-text"
+embed_model = "all-MiniLM-L6-v2"
 llm_model = "qwen3.5"
 timeout = 60
 ```
@@ -102,8 +90,7 @@ timeout = 60
 環境変数でも設定可能（環境変数が設定ファイルより優先される）:
 
 ```bash
-export NEKOCHAN_OLLAMA_URL="http://localhost:11434"
-export NEKOCHAN_EMBED_MODEL="nomic-embed-text"
+export NEKOCHAN_EMBED_MODEL="all-MiniLM-L6-v2"
 export NEKOCHAN_TIMEOUT=60
 ```
 
@@ -132,9 +119,8 @@ for r in results:
 | エラーメッセージ | 原因 | 対処法 |
 |----------------|------|--------|
 | `annotations file not found` | アノテーションファイルが未生成 | `nekochan-suggest build-annotations` を実行 |
-| `cannot connect to Ollama` | Ollama サーバーが起動していない | `ollama serve` を実行 |
-| `unexpected response from Ollama` | 埋め込みモデルが未取得 | `ollama pull nomic-embed-text` を実行 |
-| `request timed out` | Ollama の応答が遅い | `--timeout` を大きくするか Ollama の状態を確認 |
+| `failed to load embedding model` | モデルロード失敗（ネットワーク不可安定等） | インターネット接続を確認、または `NEKOCHAN_EMBED_MODEL` 設定を確認 |
+| `unexpected embedding result` | エンコード結果形式異常 | `embed_model` 設定を確認 |
 | `text is empty` | 空文字列を渡した | 1 文字以上のテキストを指定 |
 | `text is too long` | 1000 文字超のテキスト | 1000 文字以内に収める |
 | `--count must be between 1 and 10` | count が範囲外 | 1〜10 の整数を指定 |

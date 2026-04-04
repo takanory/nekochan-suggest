@@ -6,46 +6,43 @@
 
 ---
 
-## 1. ollama Python パッケージ API（埋め込み生成）
+## 1. sentence-transformers パッケージ API（埋め込み生成）
 
 ### 決定事項
 
-`ollama.Client` を使用し、`embed()` メソッド（新 API）で埋め込みを取得する。
+`sentence_transformers.SentenceTransformer` を使用し、`encode()` メソッドで埋め込みを取得する。
 
 ```python
-import ollama
+from sentence_transformers import SentenceTransformer
 
-client = ollama.Client(host=ollama_url, timeout=timeout_seconds)
-response = client.embed(model=embed_model, input=text)
-vector: list[float] = list(response.embeddings[0])
+model = SentenceTransformer(embed_model)
+vector: list[float] = model.encode(text).tolist()
 ```
 
 ### 理由
 
-- `embed()` は現行推奨 API（`EmbedResponse.embeddings: Sequence[Sequence[float]]` を返す）。
-- `embeddings()`（旧 API）は `EmbeddingsResponse.embedding: Sequence[float]` を返すが、
-  将来の非推奨化リスクがある。
-- `Client(host=..., timeout=...)` の `timeout` は内部 `httpx.Client` に
-  `**kwargs` 経由で渡されるため、リクエストタイムアウトとして機能する。
+- ローカル推論のみで動作し、外部サーバー（Ollama 等）不要。
+- `encode()` は `numpy.ndarray` を返すため `.tolist()` で `list[float]` に変換する。
+- モデルは初回実行時に Hugging Face Hub から自動ダウンロードされ、以降はキャッシュから読み込む。
+- デフォルトモデル `all-MiniLM-L6-v2` は 768 次元・高速・軽量で本用途に適している。
 
 ### 検討した代替案
 
 | 案 | 却下理由 |
 |----|---------|
-| `ollama.embeddings()` (旧 API) | 将来的に非推奨化の可能性がある |
-| `urllib` で直接 HTTP 呼び出し | 仕様書でパッケージ使用が明記されている |
+| `ollama` PyPI パッケージ | 外部 Ollama サーバーの別途起動が必要 |
+| `urllib` で Ollama HTTP API 直接呼び出し | 同上、かつ保守コストが高い |
 
 ### エラーハンドリング
 
 | 例外 | 発生条件 | 対処 |
 |------|---------|------|
-| `ConnectionError` (Python 組み込み) | Ollama サーバー未起動 / 接続拒否 | `"Error: cannot connect to Ollama ..."` を stderr に出力 |
-| `ollama.ResponseError` | HTTP エラー、モデル未取得など | `"Error: Ollama returned an error ..."` を stderr に出力 |
-| `httpx.TimeoutException` | タイムアウト発生 | `"Error: request timed out ..."` を stderr に出力 |
-| `ValueError`（空 embeddings） | `response.embeddings` が空または形式異常 | `"Error: unexpected response from Ollama ..."` を stderr に出力 |
+| `OSError` / `EnvironmentError` | モデルのロード失敗（ネットワーク不可など） | `"Error: failed to load embedding model ..."` を stderr に出力 |
+| `RuntimeError` | encode 処理の内部エラー | `"Error: embedding failed ..."` を stderr に出力 |
+| `ValueError`（空 embeddings） | `encode()` 結果が空または次元数が 0 | `"Error: unexpected embedding result ..."` を stderr に出力 |
 
-`httpx.TimeoutException` は `ollama._client._request_raw` でキャッチされないため、
-呼び出し元でキャッチする必要がある。
+タイムアウト機構は sentence-transformers がローカル処理のため不要。
+ただし `--timeout` オプションは API 互換のため引き続き受け付け（現時点では無視）。
 
 ---
 
@@ -69,10 +66,10 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 ### パフォーマンス見積もり
 
-- `nomic-embed-text` の次元数: 768
+- `all-MiniLM-L6-v2` の次元数: 384（`sentence-transformers` のデフォルト）
 - エントリ数: ~378 件
-- 1 件あたりの演算: ~2,304 回の浮動小数点演算（ドット積 768 + ノルム計算 768×2）
-- 合計: 約 87 万回の浮動小数点演算
+- 1 件あたりの演算: ~1,152 回の浮動小数点演算（ドット積 384 + ノルム計算 384×2）
+- 合計: 約 44 万回の浮動小数点演算
 - Python での実行時間: 数ミリ秒以内（SC-001 の 1 秒制約を十分に満たす）
 
 ### 検討した代替案
@@ -104,16 +101,15 @@ def _load_config() -> dict:
 
 設定値の優先順位（高 → 低）:
 
-1. `--timeout` CLI オプション（timeout のみ）
-2. 環境変数（`NEKOCHAN_OLLAMA_URL`, `NEKOCHAN_EMBED_MODEL`, `NEKOCHAN_LLM_MODEL`, `NEKOCHAN_TIMEOUT`）
+1. `--timeout` CLI オプション（API 互換のため受け付け、現時点では未使用）
+2. 環境変数（`NEKOCHAN_EMBED_MODEL`, `NEKOCHAN_LLM_MODEL`, `NEKOCHAN_TIMEOUT`）
 3. 設定ファイル (`~/.config/nekochan-suggest/config.toml`)
 4. デフォルト値
 
 ### フラットな TOML 構造
 
 ```toml
-ollama_url = "http://localhost:11434"
-embed_model = "nomic-embed-text"
+embed_model = "all-MiniLM-L6-v2"
 llm_model = "qwen3.5"
 timeout = 30
 ```
@@ -132,17 +128,17 @@ timeout = 30
 ### 決定事項
 
 設定の解決は CLI 層 (`cli.py`) で行い、解決済みの値をライブラリ関数 `suggest()` に渡す。
-ただし `ollama_url` と `embed_model` は CLI が直接の引数として受け取らないため、
+ただし `embed_model` は CLI が直接の引数として受け取らないため、
 `query.py` の内部で設定を読み込む。
 
 最終的な責務分担:
 
 | 責務 | 担当モジュール |
 |------|--------------|
-| `--timeout` CLI 引数の解析 | `cli.py` |
+| `--timeout` CLI 引数の解析（API 互換） | `cli.py` |
 | 環境変数 `NEKOCHAN_TIMEOUT` の読み込みと `--timeout` との優先処理 | `cli.py` |
 | `suggest()` に渡す最終 `timeout` 値の決定 | `cli.py` |
-| `ollama_url`・`embed_model` の設定読み込み（config + env var） | `query.py` 内部 |
+| `embed_model` の設定読み込み（config + env var） | `query.py` 内部 |
 
 ### `NEKOCHAN_TIMEOUT` バリデーション
 
@@ -183,9 +179,9 @@ timeout = 30
 | text が 1000 文字超 | `Error: text is too long (max 1000 characters).` | 1 |
 | `--count` が 0 以下または 11 以上 | `Error: --count must be between 1 and 10.` | 1 |
 | アノテーションファイル未存在 | `Error: annotations file not found. Run 'nekochan-suggest build-annotations' first.` | 1 |
-| Ollama 接続失敗 | `Error: cannot connect to Ollama at {url}. Make sure Ollama is running.` | 1 |
-| Ollama レスポンス異常 | `Error: unexpected response from Ollama. Check if 'ollama pull {model}' was run.` | 1 |
-| タイムアウト | `Error: request timed out after {N} seconds.` | 1 |
+| モデルロード失敗 | `Error: failed to load embedding model '{model}'.` | 1 |
+| エンコード結果異常 | `Error: unexpected embedding result. Check embed_model setting.` | 1 |
+| タイムアウト（将来拡張用） | `Error: request timed out after {N} seconds.` | 1 |
 
 ---
 

@@ -52,19 +52,16 @@ MVP となる。
 
 - 空文字列を渡した場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
 - 空白のみの文章（例: `"   "`・`"\t\n"`）を渡した場合、strip 後に空文字列として扱い、
-  `Error: text is empty.` を stderr に出力して終了コード 1 で終了する（入力は Ollama に送らない）。
+  `Error: text is empty.` を stderr に出力して終了コード 1 で終了する（入力は sentence-transformers に送らない）。
 - 1000 文字超の文章を渡した場合、文字数制限エラーを stderr に出力して終了コード 1 で終了する。
 - `--count 0` や負数を渡した場合、バリデーションエラーを stderr に出力して終了コード 1 で終了する。
 - `--count` を省略した場合、デフォルト 3 件を返す。
 - アノテーションファイルが存在しない場合、`build-annotations` の実行を促すメッセージを
   stderr に出力して終了コード 1 で終了する。
-- Ollama サーバーが起動していない場合、接続エラーメッセージと起動方法のヒントを
-  stderr に出力して終了コード 1 で終了する。
-- Ollama が 200 OK を返すのに応答 JSON の構造が想定外（`embedding` キーなし・空配列等）の場合、
-  `ollama` パッケージが例外を漏らすかもしくは不正なベクトルを返す。
-  いずれの場合もエラーとして捕捉し、原因ヒント付きメッセージ（例: `ollama pull nomic-embed-text` の確認を促す文言）を
-  stderr に出力して終了コード 1 で終了する。
-- LLM の応答がタイムアウトした場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
+- モデルのロードやエンコードに失敗した場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
+- 埋め込み結果が空または不正な形状（次元数が 0 等）の場合、
+  エラーとして捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1 で終了する。
+- エンコード処理がタイムアウトした場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
 - 日本語以外の文章（英語等）を渡した場合も正常に動作する。
 - `--timeout` を省略した場合、デフォルト 30 秒でタイムアウトする。
 - `NEKOCHAN_TIMEOUT` 環境変数が設定されており `--timeout` が未指定の場合、
@@ -108,21 +105,19 @@ MVP となる。
   上位 N 件を返す。
 - **FR-011**: アノテーションファイルが存在しない場合、`build-annotations` の実行を促す
   エラーメッセージを stderr に出力しなければならない。
-- **FR-012**: 埋め込み生成には `ollama` PyPI パッケージを使用しなければならない。
-  デフォルト埋め込みモデルは `nomic-embed-text`。
+- **FR-012**: 埋め込み生成には `sentence-transformers` PyPI パッケージを使用しなければならない。
+  デフォルト埋め込みモデルは `all-MiniLM-L6-v2`（768 次元）。
   コサイン類似度の計算は Python 標準ライブラリ（`math` モジュール）のみで実装し、
-  numpy 等の追加 PyPI 依存を使用してはならない。378 件程度のエントリ数であれば
+  numpy 等の追加 PyPI 依存をコサイン計算に使用してはならない。378 件程度のエントリ数であれば
   純 Python 実装でも SC-001（1 秒以内）を達成できる。
 - **FR-013**: 設定ファイル（`~/.config/nekochan-suggest/config.toml`、TOML 形式）または
-  以下の環境変数でモデル・接続先を変更できなければならない。設定ファイルの読み込みには Python 標準ライブラリの `tomllib` を使用する。
+  以下の環境変数でモデルを変更できなければならない。設定ファイルの読み込みには Python 標準ライブラリの `tomllib` を使用する。
   設定ファイルが存在しない場合はデフォルト値を使用する。
   TOML キーはフラット構造とし、以下のキーを使用する:
-  - `ollama_url`: Ollama エンドポイント（デフォルト: `http://localhost:11434`）
-  - `embed_model`: 埋め込みモデル名（デフォルト: `nomic-embed-text`）
+  - `embed_model`: 埋め込みモデル名（デフォルト: `all-MiniLM-L6-v2`）
   - `llm_model`: LLM モデル名（デフォルト: `qwen3.5`）
   - `timeout`: タイムアウト秒数（デフォルト: 30）
   環境変数の各名称と対応する config.toml キーは以下の通り:
-  - `NEKOCHAN_OLLAMA_URL` → `ollama_url`
   - `NEKOCHAN_EMBED_MODEL` → `embed_model`
   - `NEKOCHAN_LLM_MODEL` → `llm_model`
   - `NEKOCHAN_TIMEOUT` → `timeout`
@@ -170,17 +165,16 @@ MVP となる。
 - アノテーションファイル（`~/.local/share/nekochan-suggest/annotations.json`）は
   別フィーチャー（build-annotations サブコマンド）で事前生成されている。
   本フィーチャーはアノテーションファイルの生成を行わない。
-- Ollama はローカルに別途インストール・起動済みであること（本フィーチャーの範囲外）。
-- デフォルト埋め込みモデルは `nomic-embed-text`（`ollama pull nomic-embed-text` で取得）。
-- デフォルト Ollama エンドポイントは `http://localhost:11434`。
-- 本フィーチャーで追加するプロダクション PyPI 依存は `ollama` のみ（開発依存の `pytest-cov` は除く）。それ以外の処理には Python 標準ライブラリのみを使用する。
+- `sentence-transformers` はローカルに pip インストール済みであること（本パッケージの依存として自動インストール）。
+- デフォルト埋め込みモデルは `all-MiniLM-L6-v2`（初回実行時に Hugging Face から自動ダウンロード）。
+- 本フィーチャーで追加するプロダクション PyPI 依存は `sentence-transformers` のみ（開発依存の `pytest-cov` は除く）。それ以外の処理には Python 標準ライブラリのみを使用する。
 - 設定ファイルが存在しない場合、すべてデフォルト値を使用して正常動作する。
 - アノテーションはすべて英語で保存されているため、日本語・英語の両方のクエリに対応できる。
 - アノテーションファイルの `embedding` フィールドが欠損しているレコードはスキップする。
 - 本フィーチャーは `query.py` モジュールにビジネスロジックを実装し、`cli.py` からは
   ライブラリ関数として呼び出す形で設計する（GUI 連携を考慮）。
 - 単体テストは `tests/fixtures/` に配置した小規模ダミー annotations.json フィクスチャと
-  `unittest.mock` を用いた `ollama` パッケージ呼び出しのモックで実施する。CI 上で Ollama 不要とし、
+  `unittest.mock` を用いた `sentence-transformers` パッケージ呼び出しのモックで実施する。CI 上でモデルダウンロード不要とし、
   コサイン類似度計算等の純 Python ロジックを決定論的にテストできる。
 - `query.py` の公開 API は `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約する。
   内部機能（`_load_annotations`・`_embed_text`・`_cosine_similarity`）はモジュール内部関数として分離し、許可なく公開 API としない。
@@ -189,14 +183,14 @@ MVP となる。
 
 ### セッション 2026-03-22 (4)
 
-- Q: Ollama への通信に `ollama` PyPI パッケージを使用するか、`urllib` で直接 HTTP 呼び出しをするか → A: `ollama` PyPI パッケージを追加して使用する（コサイン類似度計算は引き続き純 Python）- Q: デフォルト LLM モデル → A: `qwen3.5`（`qwen2.5` から変更）
+- Q: 埋め込み生成に `sentence-transformers` PyPI パッケージを使用するか → A: `sentence-transformers` PyPI パッケージを追加して使用する（コサイン類似度計算は引き続き純 Python）- Q: デフォルト LLM モデル → A: `qwen3.5`（`qwen2.5` から変更）
 - Q: `annotations.json` のトップレベル JSON 構造 → A: 配列（`[{"name": "yatta-nya", "annotation": "...", "embedding": [...]}]`）
 - Q: `--json` 出力の `score` 値のフォーマット → A: 生の浮動小数点（丸めなし、例: `0.8734567`）
 - Q: LLM モデル名の環境変数名 → A: `NEKOCHAN_LLM_MODEL`（config.toml の `llm_model` キーと対称）
 - Q: `QueryInput` をコード型として実装するか → A: 概念的ドキュメントのみ（`suggest()` は個別引数 `text, count, timeout` で呼び出す、`json_mode` は CLI 層が処理）
 - Q: 空白のみ文章（`"   "` 等）を渡した場合の挙動 → A: strip 後に空なら `Error: text is empty.` を stderr に出力して終了コード 1
 
-- Q: 単体テストで Ollama に依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で `ollama` パッケージ呼び出しをモック（CI で Ollama 不要）
+- Q: 単体テストでモデルダウンロードに依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で `sentence-transformers` パッケージ呼び出しをモック（CI でモデルダウンロード不要）
 - Q: `query.py` の公開 API の粒度 → A: `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約し、内部機能は非公開
 - Q: エラーメッセージの言語 → A: 英語（例: `Error: annotations file not found.`）
 - Q: `SuggestionResult` の Python 型表現 → A: `dataclass`（`result.name`・`result.score` でアクセス）
@@ -204,6 +198,6 @@ MVP となる。
 
 - Q: コサイン類似度の計算に numpy を追加するか、純 Python（stdlib のみ）で実装するか → A: 純 Python（math モジュール使用、追加依存なし）
 - Q: `--count N` がアノテーションファイルの実際エントリ数を超えた場合の挙動 → A: 利用可能な件数をすべて返す（エラーなし・警告なし）
-- Q: 設定ファイル（config.toml）の TOML キー名の構造 → A: フラット構造（`ollama_url`、`embed_model`、`llm_model`、`timeout`）
+- Q: 設定ファイル（config.toml）の TOML キー名の構造 → A: フラット構造（`embed_model`、`llm_model`、`timeout`）
 - Q: SC-002（80%以上の提案精度）の検証方法 → A: 手動検証（5文のクエリと期待ファイル名をチェックリスト定義、CI 外で実施）
-- Q: Ollama が 200 OK を返すのに応答 JSON 構造が想定外の場合の挙動 → A: `ollama` パッケージの例外として捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1
+- Q: sentence-transformers のエンコードが不正な結果を返した場合の挙動 → A: 例外として捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1
