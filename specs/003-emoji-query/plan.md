@@ -61,6 +61,11 @@
 
 > **Post-Design 判定**: 全ゲート通過。実装フェーズへ進んで問題なし。
 
+> **明確化セッション 2026-04-06 反映済み** (Q3〜Q5):
+> - Q3: CLI 引数と stdin 同時指定 → CLI 引数優先（contracts/cli.md、data-model.md 更新）
+> - Q4: 初回モデルダウンロード時に `Downloading model <name>...` を stderr 出力（contracts/cli.md、quickstart.md 更新）
+> - Q5: `--count` 範囲外エラー → `Error: --count out of range (1-10).`（contracts/cli.md、data-model.md、quickstart.md 更新）
+
 ## Project Structure
 
 ### ドキュメント（本フィーチャー）

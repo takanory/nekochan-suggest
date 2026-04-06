@@ -26,6 +26,7 @@ nekochan-suggest [OPTIONS] [TEXT]
 
 ¹ TEXT 省略時は標準入力から読み取る（非 TTY の場合のみ）。TTY の場合は
 エラーメッセージを stderr に出力して終了コード 1。
+**TEXT と stdin が同時に指定された場合はコマンドライン引数を優先し stdin は無視する。**
 
 ---
 
@@ -44,8 +45,8 @@ nekochan-suggest [OPTIONS] [TEXT]
 |------|-----------------|----------|
 | text が空（strip 後）| `Error: text is empty.` | 1 |
 | text が 1000 文字超 | `Error: text is too long (max 1000 characters).` | 1 |
-| `--count` が 0 以下 | `Error: --count must be between 1 and 10.` | 1 |
-| `--count` が 11 以上 | `Error: --count must be between 1 and 10.` | 1 |
+| `--count` が 0 以下 | `Error: --count out of range (1-10).` | 1 |
+| `--count` が 11 以上 | `Error: --count out of range (1-10).` | 1 |
 
 ---
 
@@ -91,6 +92,9 @@ nekochan-suggest [OPTIONS] [TEXT]
 | アノテーションファイル未存在 | `Error: annotations file not found. Run 'nekochan-suggest build-annotations' first.` |
 | モデルロード失敗 | `Error: failed to load embedding model '{model}'.` |
 | エンコード結果異常 | `Error: unexpected embedding result. Check embed_model setting.` |
+
+**初回モデルダウンロード時の通知**: モデルが未ランタイムでない場合（初回起動）、ダウンロード開始前に
+`Downloading model <model_name>...` を stderr に 1 行出力する。sentence-transformers の進捗ログはそのまま表示する（制御しない）。
 
 ---
 

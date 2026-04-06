@@ -22,6 +22,12 @@
 
 3. **インターネット接続（初回起動時のみ）**: デフォルトモデル `intfloat/multilingual-e5-base` の初回起動時に Hugging Face Hub から自動ダウンロードされる。以降はキャッシュから読み込み（オフライン利用可能）。
 
+   初回実行時は stderr に以下のメッセージが表示される（次回以降は表示されない）:
+
+   ```
+   Downloading model intfloat/multilingual-e5-base...
+   ```
+
 ---
 
 ## 基本的な使い方
@@ -45,6 +51,8 @@ nekochan-suggest "今日もいい天気ですね"
 ```bash
 echo "あーもう疲れた…" | nekochan-suggest
 ```
+
+> **注意**: コマンドライン引数と stdin の両方を指定した場合（例: `echo "眠い" | nekochan-suggest "おはよう"`）は、コマンドライン引数が優先され stdin は無視される。
 
 ### 候補数を変更する
 
@@ -114,7 +122,7 @@ for r in results:
 | `unexpected embedding result` | エンコード結果形式異常 | `embed_model` 設定を確認 |
 | `text is empty` | 空文字列を渡した | 1 文字以上のテキストを指定 |
 | `text is too long` | 1000 文字超のテキスト | 1000 文字以内に収める |
-| `--count must be between 1 and 10` | count が範囲外 | 1〜10 の整数を指定 |
+| `--count out of range (1-10)` | count が範囲外 | 1〜10 の整数を指定 |
 
 ---
 
