@@ -70,9 +70,8 @@ nekochan-suggest --json "眠い"
 
 | オプション | 短縮形 | デフォルト | 説明 |
 |-----------|--------|-----------|------|
-| `--count N` | `-n N` | `3` | 候補数（1〜10） |
+| `--count N` | `-n N` | `3` | 候補数（1～10） |
 | `--json` | — | — | JSON 形式で出力 |
-| `--timeout N` | — | `30` | タイムアウト秒数 |
 
 ---
 
@@ -84,20 +83,12 @@ nekochan-suggest --json "眠い"
 ```toml
 embed_model = "intfloat/multilingual-e5-base"
 llm_model = "qwen3.5"
-timeout = 60
 ```
 
 環境変数でも設定可能（環境変数が設定ファイルより優先される）:
 
 ```bash
 export NEKOCHAN_EMBED_MODEL="intfloat/multilingual-e5-base"
-export NEKOCHAN_TIMEOUT=60
-```
-
-CLI オプションはすべての設定より優先される:
-
-```bash
-nekochan-suggest --timeout 120 "重要な処理"
 ```
 
 ---
@@ -107,7 +98,7 @@ nekochan-suggest --timeout 120 "重要な処理"
 ```python
 from nekochan_suggest.query import suggest
 
-results = suggest("今日のランチ最高だった！", count=3, timeout=30)
+results = suggest("今日のランチ最高だった！", count=3)
 for r in results:
     print(f"{r.name}: {r.score:.4f}")
 ```

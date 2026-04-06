@@ -63,11 +63,6 @@ MVP となる。
   エラーとして捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1 で終了する。
 - エンコード処理がタイムアウトした場合、エラーメッセージを stderr に出力して終了コード 1 で終了する。
 - 日本語以外の文章（英語等）を渡した場合も正常に動作する。
-- `--timeout` を省略した場合、デフォルト 30 秒でタイムアウトする。
-- `NEKOCHAN_TIMEOUT` 環境変数が設定されており `--timeout` が未指定の場合、
-  環境変数の値をタイムアウト秒数として使用する。`--timeout` が指定された場合は `--timeout` が優先される。
-- `NEKOCHAN_TIMEOUT` に整数でない値（例: `"abc"`、`"3.5"`）が設定されていた場合、
-  `Error: NEKOCHAN_TIMEOUT must be a positive integer.` を stderr に出力して終了コード 1 で終了する。
 - アノテーションファイル内の `embedding` フィールドが欠損しているレコードはスキップする。
 
 ---
@@ -97,9 +92,6 @@ MVP となる。
   ファイルの読み込みには Python 標準ライブラリの `json` モジュールを使用する。
   ファイルのトップレベル構造は配列（`[{...}, ...]`）とする。
 - **FR-008**: 標準入力からのパイプ入力（`echo "文章" | nekochan-suggest`）をサポートしなければならない。
-- **FR-009**: LLM 応答のタイムアウト時間を設定できなければならない。デフォルトは 30 秒とし、
-  `--timeout N`（秒単位）オプションまたは環境変数 `NEKOCHAN_TIMEOUT` で上書き可能とする。
-  `--timeout` が `NEKOCHAN_TIMEOUT` より優先される。
 - **FR-010**: クエリ時のマッチングには埋め込みベクトルによるコサイン類似度検索を使用しなければならない。
   入力文章を埋め込みベクトルに変換し、アノテーションファイルに保存済みのベクトルと比較して
   上位 N 件を返す。
@@ -119,12 +111,10 @@ MVP となる。
   TOML キーはフラット構造とし、以下のキーを使用する:
   - `embed_model`: 埋め込みモデル名（デフォルト: `intfloat/multilingual-e5-base`）
   - `llm_model`: LLM モデル名（デフォルト: `qwen3.5`）
-  - `timeout`: タイムアウト秒数（デフォルト: 30）
   環境変数の各名称と対応する config.toml キーは以下の通り:
   - `NEKOCHAN_EMBED_MODEL` → `embed_model`
   - `NEKOCHAN_LLM_MODEL` → `llm_model`
-  - `NEKOCHAN_TIMEOUT` → `timeout`
-  環境変数は設定ファイル値より優先され、`--timeout` CLI オプションは環境変数・設定ファイルのどちらよりも優先される。
+  環境変数は設定ファイル値より優先される。
 
 ### キーエンティティ
 
@@ -140,7 +130,6 @@ MVP となる。
 - **QueryInput（入力パラメータの概念的記述 — コード上の型としては実装しない）**:
   - `text`: 提案を求める文章（1 文字以上・1000 文字以下）
   - `count`: 候補数（1〜10、デフォルト 3）
-  - `timeout`: タイムアウト秒数（デフォルト 30）
   - `json_mode`: 標準出力のフォーマットを CLI 層で切り替えるフラグ（`suggest()` には渡さず CLI 層で処理）
 
 ---
@@ -181,7 +170,7 @@ MVP となる。
 - 単体テストは `tests/fixtures/` に配置した小規模ダミー annotations.json フィクスチャと
   `unittest.mock` を用いた `sentence-transformers` パッケージ呼び出しのモックで実施する。CI 上でモデルダウンロード不要とし、
   コサイン類似度計算等の純 Python ロジックを決定論的にテストできる。
-- `query.py` の公開 API は `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約する。
+- `query.py` の公開 API は `suggest(text, count) -> list[SuggestionResult]` の 1 関数に集約する。
   内部機能（`_load_annotations`・`_embed_text`・`_cosine_similarity`）はモジュール内部関数として分離し、許可なく公開 API としない。
 
 ## 明確化セッション
@@ -192,21 +181,21 @@ MVP となる。
 - Q: `annotations.json` のトップレベル JSON 構造 → A: 配列（`[{"name": "yatta-nya", "annotation": "...", "embedding": [...]}]`）
 - Q: `--json` 出力の `score` 値のフォーマット → A: 生の浮動小数点（丸めなし、例: `0.8734567`）
 - Q: LLM モデル名の環境変数名 → A: `NEKOCHAN_LLM_MODEL`（config.toml の `llm_model` キーと対称）
-- Q: `QueryInput` をコード型として実装するか → A: 概念的ドキュメントのみ（`suggest()` は個別引数 `text, count, timeout` で呼び出す、`json_mode` は CLI 層が処理）
+- Q: `QueryInput` をコード型として実装するか → A: 概念的ドキュメントのみ（`suggest()` は個別引数 `text, count` で呼び出す、`json_mode` は CLI 層が処理）
 - Q: 空白のみ文章（`"   "` 等）を渡した場合の挙動 → A: strip 後に空なら `Error: text is empty.` を stderr に出力して終了コード 1
 
 - Q: 単体テストでモデルダウンロードに依存しない検証方法 → A: `tests/fixtures/` にダミー annotations.json を配置し `unittest.mock` で `sentence-transformers` パッケージ呼び出しをモック（CI でモデルダウンロード不要）
-- Q: `query.py` の公開 API の粒度 → A: `suggest(text, count, timeout) -> list[SuggestionResult]` の 1 関数に集約し、内部機能は非公開
+- Q: `query.py` の公開 API の粒度 → A: `suggest(text, count) -> list[SuggestionResult]` の 1 関数に集約し、内部機能は非公開
 - Q: エラーメッセージの言語 → A: 英語（例: `Error: annotations file not found.`）
 - Q: `SuggestionResult` の Python 型表現 → A: `dataclass`（`result.name`・`result.score` でアクセス）
-- Q: `NEKOCHAN_TIMEOUT` に整数でない値が設定された場合の挙動 → A: `Error: NEKOCHAN_TIMEOUT must be a positive integer.` を stderr に出力して終了コード 1
 
 - Q: コサイン類似度の計算に numpy を追加するか、純 Python（stdlib のみ）で実装するか → A: 純 Python（math モジュール使用、追加依存なし）
 - Q: `--count N` がアノテーションファイルの実際エントリ数を超えた場合の挙動 → A: 利用可能な件数をすべて返す（エラーなし・警告なし）
-- Q: 設定ファイル（config.toml）の TOML キー名の構造 → A: フラット構造（`embed_model`、`llm_model`、`timeout`）
+- Q: 設定ファイル（config.toml）の TOML キー名の構造 → A: フラット構造（`embed_model`、`llm_model`）
 - Q: SC-002（80%以上の提案精度）の検証方法 → A: 手動検証（5文のクエリと期待ファイル名をチェックリスト定義、CI 外で実施）
 - Q: sentence-transformers のエンコードが不正な結果を返した場合の挙動 → A: 例外として捕捉し、原因ヒント付きメッセージを stderr に出力して終了コード 1
 
 ### セッション 2026-04-04
 
 - Q: `intfloat/multilingual-e5-base` モデルのエンコードプレフィックスの扱い—検索クエリとアノテーション（build-annotations）で同じプレフィックスを使うか → A: 非対称検索を採用。クエリ側は `"query: "` プレフィックス、アノテーション側（build-annotations）は `"passage: "` プレフィックスを付与する（e5 モデル公式推奨仕様）
+- Q: `--timeout` オプションを削除するか → A: 削除する（`sentence-transformers` はローカル処理のためタイムアウト不要）

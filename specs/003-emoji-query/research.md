@@ -24,7 +24,7 @@ vector: list[float] = model.encode("query: " + text).tolist()
 
 ### 理由
 
-- ローカル推論のみで動作し、外部サーバー（Ollama 等）不要。
+- ローカル推論のみで動作し、外部サーバー（Ollama 等）不要。タイムアウト設定は不要。
 - `encode()` は `numpy.ndarray` を返すため `.tolist()` で `list[float]` に変換する。
 - モデルは初回実行時に Hugging Face Hub から自動ダウンロードされ、以降はキャッシュから読み込む。
 - デフォルトモデル `intfloat/multilingual-e5-base` は 768 次元・多言語対応で日本語クエリに適している。
@@ -42,11 +42,6 @@ vector: list[float] = model.encode("query: " + text).tolist()
 | 例外 | 発生条件 | 対処 |
 |------|---------|------|
 | `OSError` / `EnvironmentError` | モデルのロード失敗（ネットワーク不可など） | `"Error: failed to load embedding model ..."` を stderr に出力 |
-| `RuntimeError` | encode 処理の内部エラー | `"Error: embedding failed ..."` を stderr に出力 |
-| `ValueError`（空 embeddings） | `encode()` 結果が空または次元数が 0 | `"Error: unexpected embedding result ..."` を stderr に出力 |
-
-タイムアウト機構は sentence-transformers がローカル処理のため不要。
-ただし `--timeout` オプションは API 互換のため引き続き受け付け（現時点では無視）。
 
 ---
 
@@ -105,17 +100,15 @@ def _load_config() -> dict:
 
 設定値の優先順位（高 → 低）:
 
-1. `--timeout` CLI オプション（API 互換のため受け付け、現時点では未使用）
-2. 環境変数（`NEKOCHAN_EMBED_MODEL`, `NEKOCHAN_LLM_MODEL`, `NEKOCHAN_TIMEOUT`）
-3. 設定ファイル (`~/.config/nekochan-suggest/config.toml`)
-4. デフォルト値
+1. 環境変数（`NEKOCHAN_EMBED_MODEL`, `NEKOCHAN_LLM_MODEL`）
+2. 設定ファイル (`~/.config/nekochan-suggest/config.toml`)
+3. デフォルト値
 
 ### フラットな TOML 構造
 
 ```toml
 embed_model = "intfloat/multilingual-e5-base"
 llm_model = "qwen3.5"
-timeout = 30
 ```
 
 ### 検討した代替案
@@ -139,15 +132,7 @@ timeout = 30
 
 | 責務 | 担当モジュール |
 |------|--------------|
-| `--timeout` CLI 引数の解析（API 互換） | `cli.py` |
-| 環境変数 `NEKOCHAN_TIMEOUT` の読み込みと `--timeout` との優先処理 | `cli.py` |
-| `suggest()` に渡す最終 `timeout` 値の決定 | `cli.py` |
 | `embed_model` の設定読み込み（config + env var） | `query.py` 内部 |
-
-### `NEKOCHAN_TIMEOUT` バリデーション
-
-`NEKOCHAN_TIMEOUT` に整数でない値（例: `"abc"`、`"3.5"`）が設定されていた場合は
-`"Error: NEKOCHAN_TIMEOUT must be a positive integer."` を stderr に出力して終了コード 1。
 
 ---
 

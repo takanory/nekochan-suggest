@@ -22,7 +22,7 @@ nekochan-suggest [OPTIONS] [TEXT]
 | `TEXT` | positional | いいえ¹ | — | 提案を求めるテキスト |
 | `--count N` / `-n N` | int | いいえ | `3` | 返す候補数（1〜10） |
 | `--json` | flag | いいえ | `false` | JSON 形式で出力 |
-| `--timeout N` | int | いいえ | `30` | LLM レスポンスのタイムアウト秒数 |
+
 
 ¹ TEXT 省略時は標準入力から読み取る（非 TTY の場合のみ）。TTY の場合は
 エラーメッセージを stderr に出力して終了コード 1。
@@ -46,7 +46,6 @@ nekochan-suggest [OPTIONS] [TEXT]
 | text が 1000 文字超 | `Error: text is too long (max 1000 characters).` | 1 |
 | `--count` が 0 以下 | `Error: --count must be between 1 and 10.` | 1 |
 | `--count` が 11 以上 | `Error: --count must be between 1 and 10.` | 1 |
-| `NEKOCHAN_TIMEOUT` が非整数 | `Error: NEKOCHAN_TIMEOUT must be a positive integer.` | 1 |
 
 ---
 
@@ -92,7 +91,6 @@ nekochan-suggest [OPTIONS] [TEXT]
 | アノテーションファイル未存在 | `Error: annotations file not found. Run 'nekochan-suggest build-annotations' first.` |
 | モデルロード失敗 | `Error: failed to load embedding model '{model}'.` |
 | エンコード結果異常 | `Error: unexpected embedding result. Check embed_model setting.` |
-| タイムアウト（将来拡張用） | `Error: request timed out after {N} seconds.` |
 
 ---
 
@@ -104,9 +102,8 @@ nekochan-suggest [OPTIONS] [TEXT]
 |------|------------|------------|------|
 | `NEKOCHAN_EMBED_MODEL` | `embed_model` | `intfloat/multilingual-e5-base` | 埋め込みモデル名 |
 | `NEKOCHAN_LLM_MODEL` | `llm_model` | `qwen3.5` | LLM モデル名（build-annotations 用） |
-| `NEKOCHAN_TIMEOUT` | `timeout` | `30` | タイムアウト秒数（正の整数のみ） |
 
-**優先順位**: `--timeout` オプション > `NEKOCHAN_TIMEOUT` > `config.toml` > デフォルト値
+**優先順位**: 環境変数 > `config.toml` > デフォルト値
 
 ---
 
@@ -120,7 +117,7 @@ from nekochan_suggest.query import suggest, SuggestionResult
 results: list[SuggestionResult] = suggest(
     text="今日もいい天気ですね",
     count=3,
-    timeout=30,
+
 )
 # result.name: str  — 画像ファイル名
 # result.score: float — コサイン類似度（0.0〜1.0）
@@ -130,7 +127,7 @@ results: list[SuggestionResult] = suggest(
 
 - `text` は strip 後に 1 文字以上、1000 文字以下
 - `count` は 1〜10 の整数
-- `timeout` は正の整数（秒）
+
 
 ### `suggest()` の事後条件
 

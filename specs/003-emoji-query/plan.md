@@ -37,7 +37,7 @@
   `sentence-transformers` 呼び出しは `unittest.mock` でモックし CI でモデルダウンロード不要。
   `query.py` の純 Python ロジックは決定論的テストが可能。行カバレッジ ≥ 80% 達成可能。
 - [x] **III. CLI ファースト・インターフェース** — `nekochan-suggest "text"` が CLI エントリーポイント。
-  ライブラリ API `suggest(text, count, timeout)` が CLI を反映。`--json` フラグ実装済み。
+  ライブラリ API `suggest(text, count)` が CLI を反映。`--json` フラグ実装済み。
 - [x] **IV. 可観測性と型安全性** — 全公開関数に型ヒント付与。`pyrefly` 厳格モードでチェック。
   `logging` モジュールで構造化ログ（ライブラリ内 `print()` 禁止）。
 - [x] **V. 日本語ドキュメント** — 仕様書・計画書・コードコメント・docstring はすべて日本語。
@@ -53,7 +53,7 @@
   `unittest.mock.patch('sentence_transformers.SentenceTransformer')` でモックテスト設計済み（data-model.md 参照）。
   CI でモデルダウンロード不要。コサイン類似度等の純 Python ロジックは決定論的テスト可能。
 - [x] **III. CLI ファースト・インターフェース** — contracts/cli.md に CLI コントラクト定義済み。
-  `suggest(text, count, timeout)` ライブラリ API が CLI を反映。`--json` フラグ対応。
+  `suggest(text, count)` ライブラリ API が CLI を反映。`--json` フラグ対応。
 - [x] **IV. 可観測性と型安全性** — `SuggestionResult` dataclass と `suggest()` に型ヒント付与予定。
   `logging` モジュール使用（ライブラリ内 `print()` 禁止、CLI 出力は `print()` で可）。
 - [x] **V. 日本語ドキュメント** — data-model.md・research.md・contracts/cli.md・quickstart.md

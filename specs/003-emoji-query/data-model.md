@@ -78,7 +78,6 @@ class SuggestionResult:
 |-----------|-----|-----------|-------------|
 | `text` | `str` | — | strip 後に 1 文字以上、1000 文字以下 |
 | `count` | `int` | `3` | 1〜10 の整数。0 以下または 11 以上はエラー |
-| `timeout` | `int` | `30` | 正の整数（秒） |
 
 **`json_mode`**: `suggest()` には渡さない。CLI 層が処理する。
 
@@ -106,9 +105,8 @@ class SuggestionResult:
 |------|---------|-----------------|------------|
 | `embed_model` | `NEKOCHAN_EMBED_MODEL` | `embed_model` | `intfloat/multilingual-e5-base` |
 | `llm_model` | `NEKOCHAN_LLM_MODEL` | `llm_model` | `qwen3.5` |
-| `timeout` | `NEKOCHAN_TIMEOUT` | `timeout` | `30` |
 
-**優先順位**: `--timeout` CLI オプション > 環境変数 > config.toml > デフォルト値
+**優先順位**: 環境変数 > config.toml > デフォルト値
 
 ---
 
