@@ -13,8 +13,7 @@
 
 ## Technical Context
 
-**Language/Version**: Python 3.11+（pyproject.toml 現行制約。憲法は 3.13+ を推奨するが
-`tomllib` (3.11+) で十分なため現制約を維持する）  
+**Language/Version**: Python 3.13+（憲法原則 I 準拠）  
 **Primary Dependencies**: `sentence-transformers` PyPI パッケージ（埋め込み生成のみ。コサイン類似度は stdlib `math` で実装）  
 **Storage**: `~/.local/share/nekochan-suggest/annotations.json`（読み取り専用）、
 `~/.config/nekochan-suggest/config.toml`（読み取り専用）  

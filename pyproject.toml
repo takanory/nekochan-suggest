@@ -7,7 +7,7 @@ name = "nekochan-suggest"
 version = "0.1.0"
 description = "文章に対してネコチャン絵文字を提案するCLIツール"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
     "sentence-transformers>=3.0",
 ]
@@ -29,9 +29,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integration: 実環境または subprocess を必要とするテスト（CI でスキップ）"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py313"
 line-length = 88
 
 [tool.ruff.lint]
