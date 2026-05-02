@@ -14,6 +14,7 @@ import sys
 from typing import NoReturn
 
 from .query import SuggestionResult, _load_config, suggest
+from .annotations import build_all_annotations
 
 _SUBCOMMANDS = {"build-annotations"}
 
@@ -57,6 +58,14 @@ def _build_build_annotations_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="ファイルを保存せず、先頭3件のアノテーションをプレビュー表示する。",
     )
+    parser.add_argument(
+        "--timeout",
+        "-t",
+        type=int,
+        default=None,
+        metavar="SECONDS",
+        help="HTTP タイムアウト秒数。設定ファイル・環境変数より優先される。",
+    )
     return parser
 
 
@@ -85,13 +94,28 @@ def main() -> None:
 def _handle_build_annotations(args: argparse.Namespace) -> None:
     """build-annotations サブコマンドを処理する。
 
+    設定を読み込み、--timeout が指定されていれば上書きしてから
+    build_all_annotations() を呼び出す。
+    aliases.json 取得失敗（ValueError）や Ollama 接続失敗（OSError）は
+    stderr にエラーメッセージを出力して終了コード 1 で終了する。
+
     Args:
         args: パース済みコマンドライン引数。
-
-    Note:
-        ビジネスロジックは別フィーチャー（001-nekochan-suggest）で実装予定。
     """
-    print("未実装（別フィーチャー 001-nekochan-suggest で実装予定）")  # noqa: T201
+    config = _load_config()
+    if args.timeout is not None:
+        config["timeout"] = str(args.timeout)
+    try:
+        build_all_annotations(dry_run=args.dry_run, config=config)
+    except ValueError as exc:
+        print(f"Error: failed to fetch aliases.json: {exc}", file=sys.stderr)  # noqa: T201
+        sys.exit(1)
+    except OSError:
+        print(  # noqa: T201
+            f"Error: failed to connect to Ollama at {config['ollama_url']}. Is Ollama running?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 def _handle_query(args: argparse.Namespace) -> None:

@@ -5,6 +5,10 @@
 **Status**: Draft  
 **Input**: User description: "文章に対して、その文章に追加するおすすめのネコチャン絵文字を提案するツールを作る"
 
+> **スコープ（2026-05-02 確定）**: 本フィーチャーは **US2（build-annotations コマンド）のみ**を実装対象とする。
+> US1（クエリ）・US4（JSON 出力）・US5（count オプション）は `003-emoji-query` で実装済み。
+> US3（Streamlit GUI）は別フィーチャーとして後回し。
+
 ## ユーザーシナリオとテスト（必須）
 
 ### ユーザーストーリー 1 — 文章に合うネコチャン絵文字のファイル名を提案してもらう（優先度: P1）
@@ -170,10 +174,12 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
 - **FR-006**: エラー（空入力、LLM 接続失敗、アノテーション未生成等）は stderr に
   出力し、終了コード 1 で終了しなければならない。
 - **FR-007**: 提案の生成にはローカルで動作する LLM を使用しなければならない。
-  デフォルトLLMモデルは `qwen2.5`、埋め込みモデルは `nomic-embed-text`。
+  デフォルト LLM モデルは `qwen3.5`、埋め込みモデルは `intfloat/multilingual-e5-base`。
   使用するモデルと接続先は TOML 形式の設定ファイル
   （`~/.config/nekochan-suggest/config.toml`）または環境変数で変更できなければならない。
   設定ファイルの読み込みには Python 標準ライブラリの `tomllib` を使用する。
+  LLM テキスト生成（アノテーション生成）は Ollama API を Python 標準ライブラリ `urllib` で
+  直接 HTTP 呼び出しする（`ollama` PyPI パッケージは使用しない）。
 - **FR-008**: 標準入力からのパイプ入力（`echo "文章" | nekochan-suggest`）を
   サポートしなければならない。
 - **FR-009**: LLM 応答のタイムアウト時間を設定できなければならない。デフォルトは
@@ -195,13 +201,12 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
   `--dry-run` フラグを指定した場合、先頭 3 件のアノテーションをサンプルとして標準出力にプレビュー表示し、ファイルへの保存は行わない。
 - **FR-011**: アノテーションファイルが存在しない場合、クエリ実行時に
   `build-annotations` の実行を促すエラーメッセージを表示しなければならない。
-- **FR-012**: クエリ時のマッチングは埋め込みベクトル（embedding）による類似度検索を使用する。
-  `build-annotations` 実行時に各アノテーションの埋め込みベクトルを事前生成・保存する。
-  クエリ時は入力文章を同じモデルでベクトル化し、コサイン類似度で上位 N 件を返す。
-  埋め込みの生成には Ollama Embeddings API（`/api/embeddings`）を使用する。
-  デフォルト埋め込みモデルは `nomic-embed-text`（`ollama pull nomic-embed-text` で取得）。
-  Ollama への通信には Python 標準ライブラリの `urllib` を使用し、追加 PyPI 依存は不要とする。
-  埋め込みモデルは設定ファイルで変更可能とする。
+- **FR-012**: `build-annotations` 実行時に各アノテーションの埋め込みベクトルを事前生成・保存する。
+  埋め込みの生成には `sentence-transformers` PyPI パッケージ（`003-emoji-query` と統一）を使用する。
+  デフォルト埋め込みモデルは `intfloat/multilingual-e5-base`（`003-emoji-query` と同一）。
+  アノテーションテキストへの埋め込みプレフィックスは `"passage: "` を付与する（非対称検索の passage 側）。
+  埋め込みモデルは設定ファイル（`embed_model` キー）または環境変数 `NEKOCHAN_EMBED_MODEL` で変更可能とする。
+  Ollama Embeddings API は使用しない。
 - **FR-013**: `nekochan-suggest-ui` コマンドで Streamlit ベースの GUI を起動できなければならない。
   GUI はテキスト入力欄と「提案する」ボタンを提供し、候補ファイル名・類似度スコア・ネコチャン画像を画面に表示する。
   画像は `https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/images/<name>.png`
@@ -242,10 +247,12 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
 
 - ユーザーはローカルに LLM ランタイム（Ollama）を別途インストール・起動する。
   本ツールは LLM サーバーのセットアップを行わない。
-- デフォルトモデルは `qwen2.5`（アノテーション生成用）、`nomic-embed-text`（埋め込み生成用）。
-  `ollama pull qwen2.5 && ollama pull nomic-embed-text` で取得できる。
-  環境変数 `NEKOCHAN_MODEL` / `NEKOCHAN_EMBED_MODEL` または設定ファイルで別モデルに変更可能。
-- Ollama への HTTP 通信には Python 標準ライブラリの `urllib` を使用する。追加 PyPI 依存は不要。
+- デフォルト LLM モデルは `qwen3.5`（アノテーション生成用、Ollama 経由）。
+  `ollama pull qwen3.5` で取得できる。
+  環境変数 `NEKOCHAN_LLM_MODEL` または設定ファイル（`llm_model` キー）で別モデルに変更可能。
+- LLM テキスト生成には Python 標準ライブラリの `urllib` を使って Ollama API を直接呼び出す（`ollama` PyPI パッケージは使用しない）。
+- 埋め込み生成には `sentence-transformers` PyPI パッケージ（`intfloat/multilingual-e5-base`）を使用する（`003-emoji-query` と統一）。Ollama Embeddings API は使用しない。
+- Ollama への HTTP 通信アドレスはデフォルト `http://localhost:11434`。環境変数 `NEKOCHAN_OLLAMA_URL` または設定ファイル（`ollama_url` キー）で変更可能。
 - 「ネコチャン絵文字」とは sphinx-nekochan プロジェクトの画像ファイル群を指す。
   Unicode の猫絵文字やカオモジは対象外。
 - アノテーションの生成（`build-annotations`）はインターネット接続が必要。
@@ -263,6 +270,14 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
   `streamlit` のみとし、既存機能への追加依存は認めない。
 
 ## 明確化セッション
+
+### セッション 2026-05-02
+
+- Q: 本フィーチャーの実装スコープは？ → A: US2（build-annotations）のみ。US1/US4/US5 は `003-emoji-query` で実装済み。US3（GUI）は別フィーチャー。
+- Q: `build-annotations` の埋め込み生成ライブラリは？ → A: `sentence-transformers`（`003` と統一）。デフォルトモデル `intfloat/multilingual-e5-base`、アノテーション側プレフィックス `"passage: "`。Ollama Embeddings API は使用しない。
+- Q: aliases.json の取得方法は？ → A: 毎回ネットワーク取得する（キャッシュなし・シンプル実装）。
+- Q: アノテーション JSON への書き込みタイミングは？ → A: 1 件処理するたびに全 JSON を上書き（原文どおり。途中停止しても既処理分は保持される）。
+- Q: `build-annotations` の LLM テキスト生成クライアントは？ → A: Python 標準ライブラリ `urllib` で Ollama API を直接 HTTP 呼び出し（`ollama` PyPI パッケージは使用しない）。埋め込み生成は `sentence-transformers`（Q2 と同じ）。追加 PyPI 依存は `sentence-transformers` のみ。
 
 ### セッション 2026-03-19
 
