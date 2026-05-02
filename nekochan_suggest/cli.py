@@ -7,7 +7,13 @@ nekochan-suggest コマンドのメインエントリーポイントを提供す
 from __future__ import annotations
 
 import argparse
+import json
+import os
+from pathlib import Path
 import sys
+from typing import NoReturn
+
+from .query import SuggestionResult, _load_config, suggest
 
 _SUBCOMMANDS = {"build-annotations"}
 
@@ -36,13 +42,6 @@ def _build_query_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="結果をJSON形式で標準出力に出力する。",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=30,
-        metavar="N",
-        help="LLMレスポンスのタイムアウト秒数。デフォルト: 30。",
     )
     return parser
 
@@ -101,32 +100,79 @@ def _handle_query(args: argparse.Namespace) -> None:
     Args:
         args: パース済みコマンドライン引数。
 
-    Note:
-        ビジネスロジックは別フィーチャー（001-nekochan-suggest）で実装予定。
-        --json フラグも同フィーチャーで実装予定。
     """
-    # テキストの取得（引数または標準入力）
-    text = args.text
-    if text is None:
-        if sys.stdin.isatty():
-            print(  # noqa: T201
-                "エラー: テキストを指定するか、標準入力からパイプで渡してください。",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        text = sys.stdin.read().strip()
+    text = _resolve_query_text(args)
+    _validate_query_args(text, args.count)
 
-    if not text:
-        print(  # noqa: T201
-            "エラー: テキストが空です。テキストを指定してください。",
-            file=sys.stderr,
+    embed_model = _load_config()["embed_model"]
+    if not _is_model_cached(embed_model):
+        print(f"Downloading model {embed_model}...", file=sys.stderr)  # noqa: T201
+
+    try:
+        results = suggest(text, count=args.count)
+    except FileNotFoundError:
+        _exit_with_error(
+            "Error: annotations file not found. Run 'nekochan-suggest build-annotations' first."
         )
-        sys.exit(1)
+    except OSError:
+        _exit_with_error(f"Error: failed to load embedding model '{embed_model}'.")
+    except RuntimeError as exc:
+        _exit_with_error(f"Error: embedding failed: {exc}")
+    except ValueError:
+        _exit_with_error("Error: unexpected embedding result. Check embed_model setting.")
 
     if args.json:
-        print("未実装（別フィーチャー 001-nekochan-suggest で実装予定）")  # noqa: T201
-    else:
-        print("未実装（別フィーチャー 001-nekochan-suggest で実装予定）")  # noqa: T201
+        print(json.dumps({"suggestions": [_to_json_result(result) for result in results]}, ensure_ascii=False))  # noqa: T201
+        return
+
+    for index, result in enumerate(results, start=1):
+        print(f"{index}. {result.name}  {result.score:.2f}")  # noqa: T201
+
+
+def _resolve_query_text(args: argparse.Namespace) -> str:
+    """CLI 引数または標準入力から検索テキストを解決する。"""
+    if args.text is not None:
+        return args.text
+    if sys.stdin.isatty():
+        _exit_with_error("Error: provide text as an argument or pipe it via stdin.")
+    return sys.stdin.read().strip()
+
+
+def _validate_query_args(text: str, count: int) -> None:
+    """CLI 層の入力バリデーションを行う。"""
+    if not text.strip():
+        _exit_with_error("Error: text is empty.")
+    if len(text.strip()) > 1000:
+        _exit_with_error("Error: text is too long (max 1000 characters).")
+    if count < 1 or count > 10:
+        _exit_with_error("Error: --count out of range (1-10).")
+
+
+def _resolve_model_cache_path(model_name: str) -> Path:
+    """Hugging Face Hub のモデルキャッシュパスを返す。"""
+    hub_root = Path(
+        os.environ.get(
+            "HUGGINGFACE_HUB_CACHE",
+            str(Path(os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "hub"),
+        )
+    )
+    return hub_root / f"models--{model_name.replace('/', '--')}"
+
+
+def _is_model_cached(model_name: str) -> bool:
+    """指定モデルのキャッシュがすでに存在するかを返す。"""
+    return _resolve_model_cache_path(model_name).exists()
+
+
+def _to_json_result(result: SuggestionResult) -> dict[str, float | str]:
+    """SuggestionResult を JSON 互換 dict に変換する。"""
+    return {"name": result.name, "score": result.score}
+
+
+def _exit_with_error(message: str) -> NoReturn:
+    """エラーメッセージを stderr に出力して終了する。"""
+    print(message, file=sys.stderr)  # noqa: T201
+    raise SystemExit(1)
 
 
 if __name__ == "__main__":
