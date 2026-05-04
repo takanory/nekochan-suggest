@@ -17,7 +17,7 @@
 
 **目的**: GUI フィーチャーの基盤準備（`pyproject.toml` の確認・`streamlit` インストール）
 
-- [ ] T001 `pyproject.toml` の `[project.optional-dependencies] gui = ["streamlit"]` を確認し `uv sync --extra gui` でインストールする
+- [X] T001 `pyproject.toml` の `[project.optional-dependencies] gui = ["streamlit"]` を確認し `uv sync --extra gui` でインストールする
 
 **チェックポイント**: `streamlit` がインポートできる状態 → Phase 2 へ進める
 
@@ -30,9 +30,9 @@ US1・US2 両フェーズが依存するファイル分割構造を確立する�
 
 **⚠️ 重要**: このフェーズが完了するまで US1・US2 の作業を開始しない
 
-- [ ] T002 `tests/test_ui.py` にテストファイルを新規作成し、`suggest()` モック用フィクスチャを定義する（`nekochan_suggest.query.suggest` の `patch` 設定）
-- [ ] T003 [P] `nekochan_suggest/_app.py` にモジュール骨格（docstring・型ヒント付き空関数）を新規作成する
-- [ ] T004 [P] `nekochan_suggest/ui.py` を更新し `main_run.main([str(_app_path)], standalone_mode=False)` を呼び出す `main()` に書き換える
+- [X] T002 `tests/test_ui.py` にテストファイルを新規作成し、`suggest()` モック用フィクスチャを定義する（`nekochan_suggest.query.suggest` の `patch` 設定）
+- [X] T003 [P] `nekochan_suggest/_app.py` にモジュール骨格（docstring・型ヒント付き空関数）を新規作成する
+- [X] T004 [P] `nekochan_suggest/ui.py` を更新し `main_run.main([str(_app_path)], standalone_mode=False)` を呼び出す `main()` に書き換える
 
 **チェックポイント**: `_app.py` と `ui.py` が存在し、`pytest tests/test_ui.py` が収集できる状態
 
@@ -56,17 +56,17 @@ nekochan-suggest-ui
 
 ### テスト（US1）
 
-- [ ] T005 [US1] `tests/test_ui.py` に `build_image_url()` 単体テスト追加: `name="yatta-nya"` → 期待 URL を確認する
-- [ ] T006 [US1] `tests/test_ui.py` に入力バリデーション単体テスト追加: 空文字列・空白のみ → `suggest()` が呼ばれないことを確認する
-- [ ] T007 [US1] `tests/test_ui.py` に 1000 文字超入力テスト追加: 先頭 1000 文字で `suggest()` が呼ばれることを確認する
-- [ ] T008 [US1] `tests/test_ui.py` に正常提案フロー統合テスト追加: `suggest(text, count=3)` をモックし 3 件の `SuggestionResult` を返し、`run_suggestion()` が結果リストを返すことを確認する（`count=3` で呼ばれることも検証）
+- [X] T005 [US1] `tests/test_ui.py` に `build_image_url()` 単体テスト追加: `name="yatta-nya"` → 期待 URL を確認する
+- [X] T006 [US1] `tests/test_ui.py` に入力バリデーション単体テスト追加: 空文字列・空白のみ → `suggest()` が呼ばれないことを確認する
+- [X] T007 [US1] `tests/test_ui.py` に 1000 文字超入力テスト追加: 先頭 1000 文字で `suggest()` が呼ばれることを確認する
+- [X] T008 [US1] `tests/test_ui.py` に正常提案フロー統合テスト追加: `suggest(text, count=3)` をモックし 3 件の `SuggestionResult` を返し、`run_suggestion()` が結果リストを返すことを確認する（`count=3` で呼ばれることも検証）
 
 ### 実装（US1）
 
-- [ ] T009 [US1] `nekochan_suggest/_app.py` に `build_image_url(name: str) -> str` 関数を実装する（URL パターン: `https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/images/{name}.png`）
-- [ ] T010 [US1] `nekochan_suggest/_app.py` に `validate_input(text: str) -> tuple[bool, str]` 関数を実装する（空チェック・1000 文字超トランケート・メッセージ返却）
-- [ ] T011 [P] [US1] `nekochan_suggest/_app.py` に `run_suggestion(text: str) -> list[SuggestionResult]` 関数を実装する（`suggest(text, count=3)` を呼び出し、発生した例外はキャッチせずそのまま呼び出し元に raise する）
-- [ ] T012 [US1] `nekochan_suggest/_app.py` に Streamlit UI メイン関数 `render_app() -> None` を実装する:
+- [X] T009 [US1] `nekochan_suggest/_app.py` に `build_image_url(name: str) -> str` 関数を実装する（URL パターン: `https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/images/{name}.png`）
+- [X] T010 [US1] `nekochan_suggest/_app.py` に `validate_input(text: str) -> tuple[bool, str]` 関数を実装する（空チェック・1000 文字超トランケート・メッセージ返却）
+- [X] T011 [P] [US1] `nekochan_suggest/_app.py` に `run_suggestion(text: str) -> list[SuggestionResult]` 関数を実装する（`suggest(text, count=3)` を呼び出し、発生した例外はキャッチせずそのまま呼び出し元に raise する）
+- [X] T012 [US1] `nekochan_suggest/_app.py` に Streamlit UI メイン関数 `render_app() -> None` を実装する:
   - `st.title()` でページタイトル設定
   - `st.text_area()` でテキスト入力欄（ラベル: 「提案する文章を入力してください」）
   - `st.button("提案する")` ボタン
@@ -74,9 +74,9 @@ nekochan-suggest-ui
   - `try: run_suggestion()` の結果を表示、`except Exception as e: st.error(f"提案処理でエラーが発生しました: {e}")` でエラー表示（スタックトレース非表示）
   - 結果を縦方向カードで `st.image(url)` + `st.write(name, score)` で表示
   - 0 件時は「候補が見つかりませんでした」を `st.info()` で表示
-- [ ] T013 [US1] `nekochan_suggest/_app.py` の `__main__` ガードに `render_app()` 呼び出しを追加し Streamlit 実行エントリーポイントを完成させる
+- [X] T013 [US1] `nekochan_suggest/_app.py` の `__main__` ガードに `render_app()` 呼び出しを追加し Streamlit 実行エントリーポイントを完成させる
 
-**フォーマットバリデーション**: T005〜T013 がすべて `- [ ] T0XX [US1]` 形式であることを確認
+**フォーマットバリデーション**: T005〜T013 がすべて `- [X] T0XX [US1]` 形式であることを確認
 
 ---
 
@@ -98,13 +98,13 @@ mv ~/.local/share/nekochan-suggest/annotations.json.bak ~/.local/share/nekochan-
 
 ### テスト（US2）
 
-- [ ] T014 [US2] `tests/test_ui.py` にアノテーションファイル非存在テスト追加: `ANNOTATIONS_PATH` が存在しない場合 `render_app()` 内で `suggest()` が呼ばれないことを確認する
-- [ ] T015 [P] [US2] `tests/test_ui.py` にエラーメッセージ内容テスト追加: `check_annotations_exist()` が `False` を返す場合に `build-annotations` 文字列を含むメッセージが生成されることを確認する
+- [X] T014 [US2] `tests/test_ui.py` にアノテーションファイル非存在テスト追加: `ANNOTATIONS_PATH` が存在しない場合 `render_app()` 内で `suggest()` が呼ばれないことを確認する
+- [X] T015 [P] [US2] `tests/test_ui.py` にエラーメッセージ内容テスト追加: `check_annotations_exist()` が `False` を返す場合に `build-annotations` 文字列を含むメッセージが生成されることを確認する
 
 ### 実装（US2）
 
-- [ ] T016 [US2] `nekochan_suggest/_app.py` に `check_annotations_exist() -> bool` 関数を実装する（`ANNOTATIONS_PATH.exists()` を返す）
-- [ ] T017 [US2] `nekochan_suggest/_app.py` の `render_app()` 冒頭に `check_annotations_exist()` チェックを追加する: `False` の場合 `st.error()` で「アノテーションファイルが見つかりません。`nekochan-suggest build-annotations` を実行してください。」を表示し `st.stop()` で後続処理を停止する
+- [X] T016 [US2] `nekochan_suggest/_app.py` に `check_annotations_exist() -> bool` 関数を実装する（`ANNOTATIONS_PATH.exists()` を返す）
+- [X] T017 [US2] `nekochan_suggest/_app.py` の `render_app()` 冒頭に `check_annotations_exist()` チェックを追加する: `False` の場合 `st.error()` で「アノテーションファイルが見つかりません。`nekochan-suggest build-annotations` を実行してください。」を表示し `st.stop()` で後続処理を停止する
 
 ---
 
@@ -112,10 +112,10 @@ mv ~/.local/share/nekochan-suggest/annotations.json.bak ~/.local/share/nekochan-
 
 **目的**: 品質確認・型チェック・ドキュメント検証
 
-- [ ] T018 [P] `pytest tests/test_ui.py -v --cov=nekochan_suggest/_app.py --cov-report=term-missing` を実行してすべてのテストがパスし、`_app.py` のカバレッジが 80% 以上であることを確認する（憲法 II 準拠）
-- [ ] T019 [P] `pyrefly nekochan_suggest/ui.py nekochan_suggest/_app.py` を実行して型エラーがないことを確認する
-- [ ] T020 [P] `ruff check nekochan_suggest/ui.py nekochan_suggest/_app.py tests/test_ui.py && ruff format --check nekochan_suggest/ui.py nekochan_suggest/_app.py tests/test_ui.py` を実行してリントエラーがないことを確認する
-- [ ] T021 `nekochan_suggest/_app.py` と `ui.py` のすべての公開関数に日本語 docstring が付いていることを確認する（憲法 V 準拠）
+- [X] T018 [P] `pytest tests/test_ui.py -v --cov=nekochan_suggest/_app.py --cov-report=term-missing` を実行してすべてのテストがパスし、`_app.py` のカバレッジが 80% 以上であることを確認する（憲法 II 準拠）
+- [X] T019 [P] `pyrefly nekochan_suggest/ui.py nekochan_suggest/_app.py` を実行して型エラーがないことを確認する
+- [X] T020 [P] `ruff check nekochan_suggest/ui.py nekochan_suggest/_app.py tests/test_ui.py && ruff format --check nekochan_suggest/ui.py nekochan_suggest/_app.py tests/test_ui.py` を実行してリントエラーがないことを確認する
+- [X] T021 `nekochan_suggest/_app.py` と `ui.py` のすべての公開関数に日本語 docstring が付いていることを確認する（憲法 V 準拠）
 
 ---
 
