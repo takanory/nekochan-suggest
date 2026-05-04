@@ -19,6 +19,7 @@ from typing import cast
 logger = logging.getLogger(__name__)
 
 ALIASES_URL = "https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/data/aliases.json"
+NEKOCHAN_EMOJI_URL = "https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/data/nekochan_emoji.json"
 
 
 def fetch_aliases(url: str, timeout: int) -> dict[str, list[str]]:
@@ -40,6 +41,27 @@ def fetch_aliases(url: str, timeout: int) -> dict[str, list[str]]:
             raise ValueError(f"HTTP {response.status}")
         raw = response.read()
     return cast(dict[str, list[str]], json.loads(raw))
+
+
+def fetch_emoji_data(url: str, timeout: int) -> dict[str, dict[str, object]]:
+    """nekochan_emoji.json を urllib でネットワーク取得して返す。
+
+    Args:
+        url: nekochan_emoji.json の取得先 URL。
+        timeout: 接続タイムアウト秒数。
+
+    Returns:
+        {絵文字名: {"aliases": [...], "base64": "...", "mimetype": "..."}} の辞書。
+
+    Raises:
+        OSError: 接続エラーが発生した場合（そのまま伝播）。
+        ValueError: HTTP ステータスが 200 以外の場合。
+    """
+    with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310
+        if response.status != 200:
+            raise ValueError(f"HTTP {response.status}")
+        raw = response.read()
+    return cast(dict[str, dict[str, object]], json.loads(raw))
 
 
 def _build_annotation_prompt(emoji_name: str, aliases: list[str]) -> str:
@@ -66,8 +88,12 @@ def generate_annotation(
     ollama_url: str,
     llm_model: str,
     timeout: int,
+    image_base64: str = "",
 ) -> str:
     """Ollama API を呼び出して絵文字のアノテーションテキストを生成する。
+
+    image_base64 が指定された場合、Ollama のマルチモーダル機能を使って
+    画像をモデルに渡す（images フィールド）。
 
     Args:
         emoji_name: 絵文字ファイル名（拡張子なし）。
@@ -75,6 +101,7 @@ def generate_annotation(
         ollama_url: Ollama サーバーのベース URL。
         llm_model: 使用する LLM モデル名。
         timeout: HTTP タイムアウト秒数。
+        image_base64: 絵文字画像の base64 文字列。空文字列の場合は画像なしで呼び出す。
 
     Returns:
         生成されたアノテーションテキスト。
@@ -84,7 +111,10 @@ def generate_annotation(
         TimeoutError: タイムアウトした場合（そのまま伝播）。
     """
     prompt = _build_annotation_prompt(emoji_name, aliases)
-    payload = json.dumps({"model": llm_model, "prompt": prompt, "stream": False}).encode()
+    body: dict[str, object] = {"model": llm_model, "prompt": prompt, "stream": False}
+    if image_base64:
+        body["images"] = [image_base64]
+    payload = json.dumps(body).encode()
     req = urllib.request.Request(  # noqa: S310
         f"{ollama_url}/api/generate",
         data=payload,
@@ -174,10 +204,17 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
     except OSError as e:
         raise ValueError(f"failed to fetch aliases.json from {ALIASES_URL}: {e}") from e
 
+    # nekochan_emoji.json 取得（OSError は ValueError にラップ）
+    try:
+        emoji_data = fetch_emoji_data(NEKOCHAN_EMOJI_URL, timeout)
+    except OSError as e:
+        raise ValueError(f"failed to fetch nekochan_emoji.json from {NEKOCHAN_EMOJI_URL}: {e}") from e
+
     existing_records = load_existing_annotations(ANNOTATIONS_PATH)
     existing_names = {str(r["name"]) for r in existing_records}
     records: list[dict[str, object]] = list(existing_records)
     skipped: list[str] = []
+    skipped_gif: list[str] = []
     total = len(aliases_dict)
     dry_run_count = 0
 
@@ -189,15 +226,30 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
         if name in existing_names:
             continue
 
+        emoji_entry = emoji_data.get(name, {})
+        mimetype = str(emoji_entry.get("mimetype", ""))
+        # GIF はマルチモーダルモデルで非対応のためスキップ
+        if mimetype == "image/gif":
+            logger.debug("絵文字 '%s' は GIF のためスキップします", name)
+            skipped_gif.append(name)
+            continue
+        image_b64 = str(emoji_entry.get("base64", ""))
+
         try:
-            annotation = generate_annotation(name, alias_list, ollama_url, llm_model, timeout)
+            annotation = generate_annotation(name, alias_list, ollama_url, llm_model, timeout, image_b64)
             embedding = generate_embedding(annotation, embed_model)
         except Exception as e:  # noqa: BLE001
             logger.warning("絵文字 '%s' の処理をスキップしました: %s", name, e)
             skipped.append(name)
             continue
 
-        record: dict[str, object] = {"name": name, "annotation": annotation, "embedding": embedding}
+        record: dict[str, object] = {
+            "name": name,
+            "annotation": annotation,
+            "embedding": embedding,
+            "image_base64": emoji_entry.get("base64", ""),
+            "image_mimetype": emoji_entry.get("mimetype", ""),
+        }
 
         if dry_run:
             if dry_run_count < 3:
@@ -214,7 +266,10 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
     sys.stderr.write("\n")
     sys.stderr.flush()
 
+    if skipped_gif:
+        sys.stderr.write(f"Skipped {len(skipped_gif)} GIF emojis (not supported by multimodal model): {', '.join(skipped_gif)}\n")
+        sys.stderr.flush()
     if skipped:
-        sys.stderr.write(f"Skipped {len(skipped)} emojis: {', '.join(skipped)}\n")
+        sys.stderr.write(f"Skipped {len(skipped)} emojis due to errors: {', '.join(skipped)}\n")
         sys.stderr.flush()
 

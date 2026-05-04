@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ANNOTATIONS_PATH = Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
 CONFIG_PATH = Path.home() / ".config" / "nekochan-suggest" / "config.toml"
 DEFAULT_EMBED_MODEL = "intfloat/multilingual-e5-base"
-DEFAULT_LLM_MODEL = "qwen3.5"
+DEFAULT_LLM_MODEL = "qwen3.5:2b"
 
 
 @dataclass

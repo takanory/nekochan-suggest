@@ -13,6 +13,7 @@ import pytest
 from nekochan_suggest.annotations import (
     build_all_annotations,
     fetch_aliases,
+    fetch_emoji_data,
     generate_annotation,
     generate_embedding,
     load_existing_annotations,
@@ -61,6 +62,50 @@ class TestFetchAliases:
 
 
 # ---------------------------------------------------------------------------
+# fetch_emoji_data() テスト
+# ---------------------------------------------------------------------------
+
+
+class TestFetchEmojiData:
+    """fetch_emoji_data() の単体テスト。"""
+
+    def test_returns_dict_on_success(self) -> None:
+        """正常系: HTTP 200 のとき emoji dict を返す。"""
+        payload = json.dumps({
+            "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
+        }).encode()
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.read.return_value = payload
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            result = fetch_emoji_data("http://example.com/nekochan_emoji.json", timeout=10)
+
+        assert result == {
+            "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
+        }
+
+    def test_propagates_oserror(self) -> None:
+        """接続エラー（OSError）はそのまま伝播する。"""
+        with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
+            with pytest.raises(OSError):
+                fetch_emoji_data("http://example.com/nekochan_emoji.json", timeout=10)
+
+    def test_raises_value_error_on_non_200(self) -> None:
+        """HTTP 非200 ステータスは ValueError を送出する。"""
+        mock_response = MagicMock()
+        mock_response.status = 404
+        mock_response.__enter__ = lambda s: s
+        mock_response.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_response):
+            with pytest.raises(ValueError, match="HTTP 404"):
+                fetch_emoji_data("http://example.com/nekochan_emoji.json", timeout=10)
+
+
+# ---------------------------------------------------------------------------
 # T004: generate_annotation() テスト
 # ---------------------------------------------------------------------------
 
@@ -89,6 +134,46 @@ class TestGenerateAnnotation:
                 timeout=30,
             )
         assert result == "A joyful cat."
+
+    def test_sends_images_when_image_base64_given(self) -> None:
+        """image_base64 を指定したとき、Ollama リクエストに images フィールドが含まれる。"""
+        captured_body: list[dict] = []
+
+        def fake_urlopen(req, timeout):  # noqa: ANN001
+            captured_body.append(json.loads(req.data))
+            return self._make_ollama_response("A cat emoji.")
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            generate_annotation(
+                emoji_name="yatta-nya",
+                aliases=["yatta"],
+                ollama_url="http://localhost:11434",
+                llm_model="qwen3.5",
+                timeout=30,
+                image_base64="R0l=",
+            )
+
+        assert captured_body[0]["images"] == ["R0l="]
+
+    def test_no_images_field_when_image_base64_empty(self) -> None:
+        """image_base64 が空文字列のとき、Ollama リクエストに images フィールドが含まれない。"""
+        captured_body: list[dict] = []
+
+        def fake_urlopen(req, timeout):  # noqa: ANN001
+            captured_body.append(json.loads(req.data))
+            return self._make_ollama_response("A cat emoji.")
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            generate_annotation(
+                emoji_name="yatta-nya",
+                aliases=["yatta"],
+                ollama_url="http://localhost:11434",
+                llm_model="qwen3.5",
+                timeout=30,
+                image_base64="",
+            )
+
+        assert "images" not in captured_body[0]
 
     def test_propagates_timeout_error(self) -> None:
         """タイムアウト（TimeoutError）は伝播する。"""
@@ -154,6 +239,12 @@ _SAMPLE_ALIASES = {
     "niko-nya": ["niko", "smile"],
     "hare-nya": ["hare", "sunny"],
 }
+_SAMPLE_EMOJI_DATA = {
+    "yatta-nya": {"aliases": ["yatta"], "base64": "iVBO=", "mimetype": "image/png"},
+    "nemui-nya": {"aliases": ["nemui", "sleepy"], "base64": "iVBO=", "mimetype": "image/png"},
+    "niko-nya": {"aliases": ["niko", "smile"], "base64": "iVBO=", "mimetype": "image/png"},
+    "hare-nya": {"aliases": ["hare", "sunny"], "base64": "iVBO=", "mimetype": "image/png"},
+}
 _SAMPLE_CONFIG = {
     "ollama_url": "http://localhost:11434",
     "llm_model": "qwen3.5",
@@ -167,17 +258,20 @@ def mock_deps() -> dict:
     """build_all_annotations 依存関数をすべてモックするフィクスチャ。"""
     with (
         patch("nekochan_suggest.annotations.fetch_aliases") as m_fetch,
+        patch("nekochan_suggest.annotations.fetch_emoji_data") as m_fetch_emoji,
         patch("nekochan_suggest.annotations.generate_annotation") as m_gen,
         patch("nekochan_suggest.annotations.generate_embedding") as m_emb,
         patch("nekochan_suggest.annotations.load_existing_annotations") as m_load,
         patch("nekochan_suggest.annotations.save_annotations_file") as m_save,
     ):
         m_fetch.return_value = _SAMPLE_ALIASES
+        m_fetch_emoji.return_value = _SAMPLE_EMOJI_DATA
         m_gen.return_value = "A cat annotation."
         m_emb.return_value = [0.1, 0.2, 0.3]
         m_load.return_value = []
         yield {
             "fetch": m_fetch,
+            "fetch_emoji": m_fetch_emoji,
             "gen": m_gen,
             "emb": m_emb,
             "load": m_load,
@@ -200,6 +294,8 @@ class TestBuildAllAnnotations:
             assert "name" in record
             assert "annotation" in record
             assert "embedding" in record
+            assert "image_base64" in record
+            assert "image_mimetype" in record
 
     def test_dry_run_does_not_call_save(self, mock_deps: dict) -> None:
         """ドライラン: save_annotations_file が呼ばれない。"""
@@ -251,6 +347,51 @@ class TestBuildAllAnnotations:
         mock_deps["fetch"].side_effect = OSError("network error")
         with pytest.raises(ValueError, match="failed to fetch aliases.json"):
             build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+
+    def test_fetch_emoji_oserror_raised_as_value_error(self, mock_deps: dict) -> None:
+        """emoji フェッチ OSError は ValueError として伝播する。"""
+        mock_deps["fetch_emoji"].side_effect = OSError("network error")
+        with pytest.raises(ValueError, match="failed to fetch nekochan_emoji.json"):
+            build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+
+    def test_missing_emoji_data_uses_empty_strings(self, mock_deps: dict) -> None:
+        """絵文字名が nekochan_emoji.json にない場合、image_base64/mimetype は空文字列。"""
+        mock_deps["fetch_emoji"].return_value = {}  # 空の emoji データ
+        build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+
+        # 保存されたレコードの画像データが空文字列であることを確認
+        first_call_records = mock_deps["save"].call_args_list[0][0][0]
+        last_record = first_call_records[-1]
+        assert last_record["image_base64"] == ""
+        assert last_record["image_mimetype"] == ""
+
+    def test_gif_image_not_passed_to_llm(self, mock_deps: dict) -> None:
+        """GIF 画像の絵文字は LLM 呼び出しをスキップする。"""
+        mock_deps["fetch_emoji"].return_value = {
+            "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
+            "nemui-nya": {"aliases": ["nemui"], "base64": "iVBO=", "mimetype": "image/png"},
+            "niko-nya": {"aliases": ["niko"], "base64": "iVBO=", "mimetype": "image/png"},
+            "hare-nya": {"aliases": ["hare"], "base64": "iVBO=", "mimetype": "image/png"},
+        }
+        build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+
+        # yatta-nya (GIF) はスキップされるため generate_annotation が呼ばれない
+        called_names = [c.args[0] for c in mock_deps["gen"].call_args_list]
+        assert "yatta-nya" not in called_names
+        # PNG は通常処理される
+        assert "nemui-nya" in called_names
+
+    def test_gif_skipped_reported_to_stderr(self, mock_deps: dict, capsys: pytest.CaptureFixture[str]) -> None:
+        """GIF スキップ一覧が stderr に報告される。"""
+        mock_deps["fetch_emoji"].return_value = {
+            "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
+            "nemui-nya": {"aliases": ["nemui"], "base64": "iVBO=", "mimetype": "image/png"},
+        }
+        build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+
+        captured = capsys.readouterr()
+        assert "GIF" in captured.err
+        assert "yatta-nya" in captured.err
 
 
 # ---------------------------------------------------------------------------

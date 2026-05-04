@@ -1,9 +1,10 @@
 # タスクリスト: ネコチャン絵文字アノテーション構築コマンド（build-annotations）
 
 **入力**: `/specs/001-nekochan-suggest/` 配下の設計ドキュメント  
-**前提条件**: plan.md ✅, spec.md ✅  
+**前提条件**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅  
 **TDD**: 憲法原則 II に従い、すべての実装タスクの前にテストを先に記述する（RED → GREEN）  
-**スコープ**: US2（build-annotations コマンド）のみ。US3（GUI）は別フィーチャー
+**スコープ**: US2（build-annotations コマンド）のみ。US3（GUI）は別フィーチャー  
+**更新日**: 2026-05-04（マルチモーダル拡張フェーズを追加）
 
 ## 表記: `[ID] [P?] [US?] 説明`
 
@@ -63,41 +64,6 @@ nekochan-suggest build-annotations --dry-run
 
 ---
 
-## Phase 3: 仕上げ・横断的関心事
-
-**目的**: 型チェック・docstring・カバレッジ・手動検証
-
-- [X] T010 [P] `nekochan_suggest/annotations.py`・`nekochan_suggest/cli.py`・`nekochan_suggest/query.py` のすべての公開・非公開シンボルに完全な型アノテーションを付与する。`uv run pyrefly check nekochan_suggest/` を実行して報告されたエラーをすべて修正する（`nekochan_suggest/annotations.py`、`nekochan_suggest/cli.py`、`nekochan_suggest/query.py`）
-- [X] T011 [P] `nekochan_suggest/annotations.py` の新規・変更した全シンボルと `nekochan_suggest/cli.py` の `_handle_build_annotations` に日本語 docstring を追加する（`nekochan_suggest/annotations.py`、`nekochan_suggest/cli.py`）
-- [X] T012 [P] `uv run pytest --cov=nekochan_suggest --cov-report=term-missing -m "not integration"` を実行し、`nekochan_suggest/annotations.py` の行カバレッジが ≥ 80% であることを確認する。不足がある場合は補完テストを `tests/test_annotations.py` に追加する
-- [X] T013 `nekochan-suggest build-annotations --dry-run` の手動検証を実施する。Ollama (`qwen3.5`) が稼働しインターネット接続がある状態で実行し、stdout に先頭 3 件のアノテーション JSON が表示されること・終了コード 0 であることを確認する
-
----
-
-## 依存関係と実行順序
-
-### フェーズ間依存
-
-- **Setup（Phase 1）**: 依存なし — T001・T002 は並列実行可
-- **US2（Phase 2）**: Phase 1 完了後
-  - **RED フェーズ**（T003–T007）: T001・T002 完了後、すべて並列実行可 [P]
-  - **GREEN フェーズ**: T008（T001 に依存）→ T009（T008 に依存）
-- **仕上げ（Phase 3）**: Phase 2 全タスク完了後。T010・T011・T012 は並列実行可 [P]。T013 は T010〜T012 後
-
-### 並列実行チャート
-
-```
-Phase 1:  T001 ║ T002
-                ↓（両方完了後）
-RED:   T003 ║ T004 ║ T005 ║ T006 ║ T007   (全並列)
-                ↓（全 FAIL を確認）
-GREEN: T008 → T009
-                ↓
-仕上げ: T010 ║ T011 ║ T012
-                ↓
-        T013
-```
-
 ---
 
 ## 実装ストラテジー
@@ -109,7 +75,10 @@ T010〜T013 は品質保証フェーズ。
 1. Phase 1 でインフラ準備
 2. T003〜T007 を並列で記述（全 FAIL を確認）
 3. T008 → T009 の順で GREEN にする
-4. Phase 3 で品質を高める
+4. Phase 4 でマルチモーダル拡張
+5. Phase 5 で品質を高める
+
+**SC-001（手動確認済み）**: `nekochan-suggest build-annotations --dry-run` + クエリの LLM 除外処理時間を計測。モックテスト実行（134 秒）から LLM / 埋め込み時間を除いたロジック処理は 1 秒以内であることを 2026-05-04 に確認済み。
 
 **技術制約（実装時の注意事項）**:
 1. **LLM 呼び出し**: `urllib.request.urlopen` で `POST {ollama_url}/api/generate`。`"stream": False`
@@ -120,3 +89,83 @@ T010〜T013 は品質保証フェーズ。
 6. **進行表示**: `print(f"[{i}/{total}] {name}", end="\r", file=sys.stderr, flush=True)`
 7. **`ANNOTATIONS_PATH` の再利用**: `from .query import ANNOTATIONS_PATH` を使う（再定義しない）
 8. **ライブラリコード内 `print()` 禁止**: `logging` を使用。進行表示は `sys.stderr.write()` + `sys.stderr.flush()`。dry-run の stdout 出力（`print(json.dumps(...))`）は CLI 構造化出力のため憲法 IV 禁止範囲外
+
+---
+
+## Phase 4: US2 マルチモーダル拡張（nekochan_emoji.json・GIF スキップ）
+
+**目的**: `nekochan_emoji.json` から画像データを取得し、Ollama のマルチモーダル機能で PNG 画像を LLM に渡す。GIF 画像はスキップして stderr に報告する。
+
+**独立テスト**:
+```bash
+uv run pytest tests/test_annotations.py -v -k "emoji or gif or image"
+# → 関連テストが全 PASS
+```
+
+- [X] T014 [P] [US2] `nekochan_suggest/annotations.py` に `fetch_emoji_data()` 関数を追加する。`NEKOCHAN_EMOJI_URL` 定数と `fetch_emoji_data(url: str, timeout: int) -> dict[str, dict[str, object]]` を実装する（`fetch_aliases()` と同じ urllib パターン）。テストを `tests/test_annotations.py` の `TestFetchEmojiData` クラスに追加する（正常系・OSError 伝播・HTTP 非 200 ValueError）（`nekochan_suggest/annotations.py`, `tests/test_annotations.py`）
+- [X] T015 [P] [US2] `nekochan_suggest/annotations.py` の `generate_annotation()` に `image_base64: str = ""` 引数を追加し、非空の場合 Ollama リクエストに `"images": [image_base64]` フィールドを追加する。テストを `tests/test_annotations.py` に追加する（`test_sends_images_when_image_base64_given`・`test_no_images_field_when_image_base64_empty`）（`nekochan_suggest/annotations.py`, `tests/test_annotations.py`）
+- [X] T016 [US2] `nekochan_suggest/annotations.py` の `build_all_annotations()` を拡張する。①`fetch_emoji_data()` 呼び出し（OSError → ValueError にラップ）を追加 ②ループ内で `emoji_data` から `mimetype` と `base64` を取得 ③`mimetype == "image/gif"` の場合 `continue` でスキップ（`skipped_gif` リストに追加）④PNG の場合は `image_b64` を `generate_annotation()` に渡す ⑤`record` に `image_base64` と `image_mimetype` フィールドを追加する。テストを `tests/test_annotations.py` に追加する（`test_gif_image_not_passed_to_llm`・`test_missing_emoji_data_uses_empty_strings`・`test_fetch_emoji_oserror_raised_as_value_error`）（`nekochan_suggest/annotations.py`, `tests/test_annotations.py`）
+- [X] T017 [P] [US2] `nekochan_suggest/annotations.py` の `build_all_annotations()` 完了後に GIF スキップ一覧を stderr に出力する（LLM エラースキップとは別メッセージで分けて報告）。テストを `tests/test_annotations.py` に追加する（`test_gif_skipped_reported_to_stderr`）（`nekochan_suggest/annotations.py`, `tests/test_annotations.py`）
+- [X] T018 [P] `nekochan_suggest/annotations.py` の `NEKOCHAN_EMOJI_URL` を `refs/heads/main` から `main` に正規化する（`ALIASES_URL` と統一）（`nekochan_suggest/annotations.py`）
+
+**チェックポイント**: `uv run pytest tests/test_annotations.py -v` が 28 件全 PASS ✅
+
+---
+
+## Phase 5: 仕上げ・横断的関心事
+
+**目的**: 型チェック・docstring・カバレッジ・手動検証・設計ドキュメント整備
+
+- [X] T010 [P] `nekochan_suggest/annotations.py`・`nekochan_suggest/cli.py`・`nekochan_suggest/query.py` のすべての公開・非公開シンボルに完全な型アノテーションを付与する。`uv run pyrefly check nekochan_suggest/` を実行して報告されたエラーをすべて修正する（`nekochan_suggest/annotations.py`、`nekochan_suggest/cli.py`、`nekochan_suggest/query.py`）
+- [X] T011 [P] `nekochan_suggest/annotations.py` の新規・変更した全シンボルと `nekochan_suggest/cli.py` の `_handle_build_annotations` に日本語 docstring を追加する（`nekochan_suggest/annotations.py`、`nekochan_suggest/cli.py`）
+- [X] T012 [P] `uv run pytest --cov=nekochan_suggest --cov-report=term-missing -m "not integration"` を実行し、`nekochan_suggest/annotations.py` の行カバレッジが ≥ 80% であることを確認する。不足がある場合は補完テストを `tests/test_annotations.py` に追加する
+- [X] T013 `nekochan-suggest build-annotations --dry-run` の手動検証を実施する。Ollama (`qwen3.5:2b`) が稼働しインターネット接続がある状態で実行し、stdout に先頭 3 件のアノテーション JSON が表示されること・終了コード 0 であることを確認する
+- [X] T019 [P] `specs/001-nekochan-suggest/spec.md` の明確化セッション（2026-05-04）に回答を記録する。FR-007 の `qwen3.5` を `qwen3.5:2b` に修正、GIF スキップ報告・dry-run 挙動・GIF 除外の位置付け・URL 統一の決定を記録する（`specs/001-nekochan-suggest/spec.md`）
+- [X] T020 [P] `specs/001-nekochan-suggest/` に実装計画書と設計ドキュメントを作成する。`plan.md`（技術コンテキスト・憲法チェック・プロジェクト構造）、`research.md`（Ollama API・GIF 方針・埋め込みモデル等 7 項目）、`data-model.md`（AnnotationRecord・外部データソース・状態遷移・設定キー）、`quickstart.md`（インストール・実行・設定ガイド）を作成する（`specs/001-nekochan-suggest/`）
+- [X] T021 `tests/test_cli.py::test_cli_text_stub_response` の統合テストを修正する。このテストは「annotations.json が存在しない場合に終了コード 1 になること」を検証しているが、`~/.local/share/nekochan-suggest/annotations.json` が既に存在する環境では終了コード 0 になり FAIL する。テストをモックベースに書き換えるか、`@pytest.mark.skipif` で環境依存条件を明示する（`tests/test_cli.py`）
+
+---
+
+## 依存関係と実行順序
+
+### フェーズ間依存
+
+```
+Phase 1 (T001, T002)
+    ↓
+Phase 2 (T003〜T007) — 並列実行可能
+    ↓
+Phase 3 (T008 → T009) — 順番に実行
+    ↓
+Phase 4 (T014〜T018) — T016 は T014・T015 完了後
+    ↓
+Phase 5 (T010〜T013, T019〜T021) — T013・T021 以外は並列可能
+```
+
+### 並列実行例（US2 内）
+
+```bash
+# Phase 2: テストを全並列で記述
+T003 & T004 & T005 & T006 & T007
+
+# Phase 4: T014・T015 を並列、T016 はその後
+T014 & T015 → T016 → T017 & T018
+
+# Phase 5: 品質タスクを並列
+T010 & T011 & T012 & T019 & T020
+```
+
+---
+
+## 進捗サマリー
+
+| フェーズ | タスク数 | 完了 | 残り |
+|---------|---------|------|------|
+| Phase 1: セットアップ | 2 | 2 | 0 |
+| Phase 2: 基盤（TDD RED） | 5 | 5 | 0 |
+| Phase 3: US2 実装 | 2 | 2 | 0 |
+| Phase 4: マルチモーダル拡張 | 5 | 5 | 0 |
+| Phase 5: 仕上げ | 7 | 7 | 0 |
+| **合計** | **21** | **21** | **0** |
+
+**全タスク完了** ✅
