@@ -68,7 +68,17 @@ def test_cli_build_annotations_recognized() -> None:
 
 @pytest.mark.integration
 def test_cli_text_stub_response() -> None:
-    """テキスト引数に対して CLI がアノテーションエラーを出力することを確認する。"""
+    """テキスト引数に対して CLI がアノテーションエラーを出力することを確認する。
+
+    環境に annotations.json が存在する場合はスキップ（環境依存テスト）。
+    """
+    import os
+    from pathlib import Path
+
+    annotations_path = Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
+    if annotations_path.exists():
+        pytest.skip("annotations.json が存在するため環境非依存テストでカバー済み")
+
     result = subprocess.run(
         [sys.executable, "-m", "nekochan_suggest.cli", "テスト入力"],
         capture_output=True,
@@ -299,14 +309,22 @@ def test_main_dispatches_build_annotations(capsys: pytest.CaptureFixture[str]) -
     mock_handle.assert_called_once()
 
 
-def test_handle_build_annotations_prints_message(
+def test_handle_build_annotations_calls_build(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """_handle_build_annotations が未実装メッセージを出力する。"""
-    args = argparse.Namespace(dry_run=False)
-    _handle_build_annotations(args)
-    captured = capsys.readouterr()
-    assert "未実装" in captured.out
+    """_handle_build_annotations が build_all_annotations を呼び出す。"""
+    args = argparse.Namespace(dry_run=False, timeout=None)
+    with (
+        patch("nekochan_suggest.cli.build_all_annotations") as mock_build,
+        patch("nekochan_suggest.cli._load_config", return_value={
+            "ollama_url": "http://localhost:11434",
+            "llm_model": "qwen3.5",
+            "embed_model": "intfloat/multilingual-e5-base",
+            "timeout": "30",
+        }),
+    ):
+        _handle_build_annotations(args)
+    mock_build.assert_called_once()
 
 
 def test_handle_query_prints_model_download_message(
@@ -395,3 +413,88 @@ def test_is_model_cached_returns_false_for_nonexistent(tmp_path: pytest.TempPath
     with patch("nekochan_suggest.cli._resolve_model_cache_path", return_value=tmp_path / "nonexistent"):
         result = _is_model_cached("some-model")
     assert result is False
+
+
+# ---------------------------------------------------------------------------
+# T007: _handle_build_annotations() テスト
+# ---------------------------------------------------------------------------
+
+
+class TestHandleBuildAnnotations:
+    """_handle_build_annotations() の単体テスト。"""
+
+    def _make_args(self, dry_run: bool = False, timeout: int | None = None) -> argparse.Namespace:
+        return argparse.Namespace(dry_run=dry_run, timeout=timeout)
+
+    def test_dry_run_calls_build_with_dry_run_true(self) -> None:
+        """--dry-run フラグで build_all_annotations(dry_run=True, config=...) が呼ばれる。"""
+        with (
+            patch("nekochan_suggest.cli.build_all_annotations") as mock_build,
+            patch("nekochan_suggest.cli._load_config", return_value={
+                "ollama_url": "http://localhost:11434",
+                "llm_model": "qwen3.5",
+                "embed_model": "intfloat/multilingual-e5-base",
+                "timeout": "30",
+            }),
+        ):
+            _handle_build_annotations(self._make_args(dry_run=True))
+
+        mock_build.assert_called_once()
+        call_kwargs = mock_build.call_args
+        assert call_kwargs.kwargs.get("dry_run") is True or call_kwargs.args[0] is True
+
+    def test_timeout_arg_overrides_config(self) -> None:
+        """--timeout 60 で config['timeout'] が '60' に上書きされる。"""
+        captured_config: dict = {}
+
+        def capture_build(dry_run: bool, config: dict) -> None:  # noqa: FBT001
+            captured_config.update(config)
+
+        with (
+            patch("nekochan_suggest.cli.build_all_annotations", side_effect=capture_build),
+            patch("nekochan_suggest.cli._load_config", return_value={
+                "ollama_url": "http://localhost:11434",
+                "llm_model": "qwen3.5",
+                "embed_model": "intfloat/multilingual-e5-base",
+                "timeout": "30",
+            }),
+        ):
+            _handle_build_annotations(self._make_args(timeout=60))
+
+        assert captured_config["timeout"] == "60"
+
+    def test_value_error_from_fetch_exits_with_1(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """aliases fetch 失敗（ValueError）で stderr にエラーメッセージ、終了コード 1。"""
+        with (
+            patch("nekochan_suggest.cli.build_all_annotations", side_effect=ValueError("HTTP 404")),
+            patch("nekochan_suggest.cli._load_config", return_value={
+                "ollama_url": "http://localhost:11434",
+                "llm_model": "qwen3.5",
+                "embed_model": "intfloat/multilingual-e5-base",
+                "timeout": "30",
+            }),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            _handle_build_annotations(self._make_args())
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Error: failed to fetch aliases.json:" in captured.err
+
+    def test_oserror_from_ollama_exits_with_1(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Ollama 未起動（OSError）で stderr にエラーメッセージ、終了コード 1。"""
+        with (
+            patch("nekochan_suggest.cli.build_all_annotations", side_effect=OSError("connection refused")),
+            patch("nekochan_suggest.cli._load_config", return_value={
+                "ollama_url": "http://localhost:11434",
+                "llm_model": "qwen3.5",
+                "embed_model": "intfloat/multilingual-e5-base",
+                "timeout": "30",
+            }),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            _handle_build_annotations(self._make_args())
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Error: failed to connect to Ollama" in captured.err

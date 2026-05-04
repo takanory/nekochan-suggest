@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 ANNOTATIONS_PATH = Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
 CONFIG_PATH = Path.home() / ".config" / "nekochan-suggest" / "config.toml"
 DEFAULT_EMBED_MODEL = "intfloat/multilingual-e5-base"
-DEFAULT_LLM_MODEL = "qwen3.5"
+DEFAULT_LLM_MODEL = "qwen3.5:2b"
 
 
 @dataclass
@@ -84,10 +84,20 @@ def _load_config() -> dict[str, str]:
         "llm_model",
         DEFAULT_LLM_MODEL,
     )
+    ollama_url = os.environ.get("NEKOCHAN_OLLAMA_URL") or config_data.get(
+        "ollama_url",
+        "http://localhost:11434",
+    )
+    timeout = os.environ.get("NEKOCHAN_TIMEOUT") or config_data.get(
+        "timeout",
+        "30",
+    )
 
     return {
         "embed_model": str(embed_model),
         "llm_model": str(llm_model),
+        "ollama_url": str(ollama_url),
+        "timeout": str(timeout),
     }
 
 

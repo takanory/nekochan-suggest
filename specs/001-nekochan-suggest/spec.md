@@ -5,6 +5,10 @@
 **Status**: Draft  
 **Input**: User description: "文章に対して、その文章に追加するおすすめのネコチャン絵文字を提案するツールを作る"
 
+> **スコープ（2026-05-02 確定）**: 本フィーチャーは **US2（build-annotations コマンド）のみ**を実装対象とする。
+> US1（クエリ）・US4（JSON 出力）・US5（count オプション）は `003-emoji-query` で実装済み。
+> US3（Streamlit GUI）は別フィーチャーとして後回し。
+
 ## ユーザーシナリオとテスト（必須）
 
 ### ユーザーストーリー 1 — 文章に合うネコチャン絵文字のファイル名を提案してもらう（優先度: P1）
@@ -148,6 +152,8 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
   `build-annotations` の実行を促すメッセージを stderr に表示する。
 - `build-annotations` 実行中に一部の絵文字で LLM エラーが発生した場合、
   エラー絵文字をスキップして残りを処理する。完了後にスキップ一覧を stderr に表示する。
+- `build-annotations` 実行時、GIF 画像の絵文字（`image/gif`）はマルチモーダルモデル非対応のためアノテーション生成をスキップする。
+  完了後、GIF スキップ一覧を stderr に表示する（LLM エラースキップと同様の形式）。
 - `build-annotations` 実行時に aliases.json のフェッチが失敗した場合（ネットワーク障害・
   非 200 ステータス）、エラーメッセージ（URL・ステータスコード）を stderr に出力して
   終了コード 1 で終了する。
@@ -170,10 +176,8 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
 - **FR-006**: エラー（空入力、LLM 接続失敗、アノテーション未生成等）は stderr に
   出力し、終了コード 1 で終了しなければならない。
 - **FR-007**: 提案の生成にはローカルで動作する LLM を使用しなければならない。
-  デフォルトLLMモデルは `qwen2.5`、埋め込みモデルは `nomic-embed-text`。
-  使用するモデルと接続先は TOML 形式の設定ファイル
-  （`~/.config/nekochan-suggest/config.toml`）または環境変数で変更できなければならない。
-  設定ファイルの読み込みには Python 標準ライブラリの `tomllib` を使用する。
+  デフォルト LLM モデルは `qwen3.5:2b`、埋め込みモデルは `intfloat/multilingual-e5-base`。
+  モデル名・接続先の詳細は「前提と想定」セクションを参照。
 - **FR-008**: 標準入力からのパイプ入力（`echo "文章" | nekochan-suggest`）を
   サポートしなければならない。
 - **FR-009**: LLM 応答のタイムアウト時間を設定できなければならない。デフォルトは
@@ -192,17 +196,18 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
   処理中は `[N/378] 絵文字名` 形式の進行表示を stderr に `\r` でインライン更新する。追加ライブラリは不要。
   1 件の LLM エラーはスキップして次の絵文字処理を続行する。各絵文字の処理結果はその都度 JSON ファイルに書き込む。
   完了時にスキップした絵文字名をまとめて stderr に出力する。再実行時は既存エントリをスキップする。
+  GIF 画像の絵文字（`image/gif`）はマルチモーダルモデル非対応のためアノテーション生成をスキップする。
+  完了後、GIF スキップ一覧を LLM エラースキップ一覧と分けて stderr に表示する。
   `--dry-run` フラグを指定した場合、先頭 3 件のアノテーションをサンプルとして標準出力にプレビュー表示し、ファイルへの保存は行わない。
 - **FR-011**: アノテーションファイルが存在しない場合、クエリ実行時に
   `build-annotations` の実行を促すエラーメッセージを表示しなければならない。
-- **FR-012**: クエリ時のマッチングは埋め込みベクトル（embedding）による類似度検索を使用する。
-  `build-annotations` 実行時に各アノテーションの埋め込みベクトルを事前生成・保存する。
-  クエリ時は入力文章を同じモデルでベクトル化し、コサイン類似度で上位 N 件を返す。
-  埋め込みの生成には Ollama Embeddings API（`/api/embeddings`）を使用する。
-  デフォルト埋め込みモデルは `nomic-embed-text`（`ollama pull nomic-embed-text` で取得）。
-  Ollama への通信には Python 標準ライブラリの `urllib` を使用し、追加 PyPI 依存は不要とする。
-  埋め込みモデルは設定ファイルで変更可能とする。
-- **FR-013**: `nekochan-suggest-ui` コマンドで Streamlit ベースの GUI を起動できなければならない。
+- **FR-012**: `build-annotations` 実行時に各アノテーションの埋め込みベクトルを事前生成・保存する。
+  埋め込みの生成には `sentence-transformers` PyPI パッケージ（`003-emoji-query` と統一）を使用する。
+  デフォルト埋め込みモデルは `intfloat/multilingual-e5-base`（`003-emoji-query` と同一）。
+  アノテーションテキストへの埋め込みプレフィックスは `"passage: "` を付与する（非対称検索の passage 側）。
+  埋め込みモデルは設定ファイル（`embed_model` キー）または環境変数 `NEKOCHAN_EMBED_MODEL` で変更可能とする。
+  Ollama Embeddings API は使用しない。
+- **FR-013** ※**本フィーチャーのスコープ外（別フィーチャーで実装）**: `nekochan-suggest-ui` コマンドで Streamlit ベースの GUI を起動できなければならない。
   GUI はテキスト入力欄と「提案する」ボタンを提供し、候補ファイル名・類似度スコア・ネコチャン画像を画面に表示する。
   画像は `https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/images/<name>.png`
   の URL パターンで構築し `st.image()` で表示する（インターネット接続が必要）。
@@ -214,6 +219,8 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
   - `aliases`: エイリアスのリスト（例: `["yatta"]`）
   - `annotation`: LLM が生成した英語の説明テキスト（感情・状況・用途を 2〜3 文で記述）
   - `embedding`: annotation から生成した埋め込みベクトル（浮動小数点の配列）
+  - `image_base64`: 絵文字画像の base64 文字列（PNG のみ、GIF はスキップのため空文字列）
+  - `image_mimetype`: 画像の MIME タイプ（例: `image/png`、GIF スキップ分は空文字列）
 - **テキスト入力**: ユーザーが提案を求める文章。1 文字以上、1000 文字以下。
 - **提案結果**: マッチした NekochanEmoji のファイル名とコサイン類似度スコアのリスト。
 
@@ -242,10 +249,12 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
 
 - ユーザーはローカルに LLM ランタイム（Ollama）を別途インストール・起動する。
   本ツールは LLM サーバーのセットアップを行わない。
-- デフォルトモデルは `qwen2.5`（アノテーション生成用）、`nomic-embed-text`（埋め込み生成用）。
-  `ollama pull qwen2.5 && ollama pull nomic-embed-text` で取得できる。
-  環境変数 `NEKOCHAN_MODEL` / `NEKOCHAN_EMBED_MODEL` または設定ファイルで別モデルに変更可能。
-- Ollama への HTTP 通信には Python 標準ライブラリの `urllib` を使用する。追加 PyPI 依存は不要。
+- デフォルト LLM モデルは `qwen3.5:2b`（アノテーション生成用、Ollama 経由、マルチモーダル対応）。
+  `ollama pull qwen3.5:2b` で取得できる。
+  環境変数 `NEKOCHAN_LLM_MODEL` または設定ファイル（`llm_model` キー）で別モデルに変更可能。
+- LLM テキスト生成には Python 標準ライブラリの `urllib` を使って Ollama API を直接呼び出す（`ollama` PyPI パッケージは使用しない）。
+- 埋め込み生成には `sentence-transformers` PyPI パッケージ（`intfloat/multilingual-e5-base`）を使用する（`003-emoji-query` と統一）。Ollama Embeddings API は使用しない。
+- Ollama への HTTP 通信アドレスはデフォルト `http://localhost:11434`。環境変数 `NEKOCHAN_OLLAMA_URL` または設定ファイル（`ollama_url` キー）で変更可能。
 - 「ネコチャン絵文字」とは sphinx-nekochan プロジェクトの画像ファイル群を指す。
   Unicode の猫絵文字やカオモジは対象外。
 - アノテーションの生成（`build-annotations`）はインターネット接続が必要。
@@ -263,6 +272,23 @@ MVP となる。他のすべての機能はこの中核機能の上に成り立�
   `streamlit` のみとし、既存機能への追加依存は認めない。
 
 ## 明確化セッション
+
+### セッション 2026-05-04
+
+- Q: デフォルト LLM モデル名の正規表記は `qwen3.5` か `qwen3.5:2b` か → A: `qwen3.5:2b`（FR-007 を更新済み）
+- Q: GIF 画像の絵文字をスキップした場合の報告方法は？ → A: stderr にスキップ一覧を出力（LLM エラー時と同様の形式、別メッセージで分けて表示）
+- Q: `--dry-run` 時に GIF 絵文字をどう扱うか → A: dry-run でも GIF はスキップ（通常実行と同じ挙動で統一）
+- Q: GIF 絵文字がクエリ結果に表示されないのは意図した仕様か → A: 一時的な制限（将来 GIF 対応モデルに切り替えた際に再考）
+- Q: `NEKOCHAN_EMOJI_URL` と `ALIASES_URL` の ref 表記を統一するか → A: `main` に統一（`NEKOCHAN_EMOJI_URL` の `refs/heads/main` を `main` に変更）
+
+### セッション 2026-05-02
+
+- Q: 本フィーチャーの実装スコープは？ → A: US2（build-annotations）のみ。US1/US4/US5 は `003-emoji-query` で実装済み。US3（GUI）は別フィーチャー。
+- Q: `build-annotations` の埋め込み生成ライブラリは？ → A: `sentence-transformers`（`003` と統一）。デフォルトモデル `intfloat/multilingual-e5-base`、アノテーション側プレフィックス `"passage: "`。Ollama Embeddings API は使用しない。
+- Q: aliases.json の取得方法は？ → A: 毎回ネットワーク取得する（キャッシュなし・シンプル実装）。
+- Q: アノテーション JSON への書き込みタイミングは？ → A: 1 件処理するたびに全 JSON を上書き（原文どおり。途中停止しても既処理分は保持される）。
+- Q: `build-annotations` の LLM テキスト生成クライアントは？ → A: Python 標準ライブラリ `urllib` で Ollama API を直接 HTTP 呼び出し（`ollama` PyPI パッケージは使用しない）。埋め込み生成は `sentence-transformers`（Q2 と同じ）。追加 PyPI 依存は `sentence-transformers` のみ。
+- Q: マルチモーダルモデルの使用と画像渡しについて → A: デフォルト LLM モデルを `qwen3.5:2b` に変更（`qwen3.5` から変更）。`qwen3.5:2b` は画像対応（マルチモーダル）のため、`build-annotations` 実行時に `nekochan_emoji.json` から取得した画像 base64 を Ollama の `images` フィールドで渡す。
 
 ### セッション 2026-03-19
 
