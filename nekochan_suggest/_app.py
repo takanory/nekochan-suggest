@@ -9,30 +9,36 @@ UI 表示処理のみを担い、ビジネスロジックは query.suggest() に
 
 from __future__ import annotations
 
+import base64
+import json
+
 import streamlit as st  # type: ignore[import-untyped]
 
 from nekochan_suggest.query import ANNOTATIONS_PATH, SuggestionResult, suggest
-
-# 画像 URL のベースパス
-_IMAGE_BASE_URL = (
-    "https://raw.githubusercontent.com/takanory/sphinx-nekochan"
-    "/main/sphinx_nekochan/images/{name}.png"
-)
 
 # テキスト入力の最大文字数
 _MAX_INPUT_LENGTH = 1000
 
 
-def build_image_url(name: str) -> str:
-    """絵文字名から GitHub Raw URL を構築して返す。
+def get_image_bytes(name: str) -> bytes | None:
+    """annotations.json から name に対応する画像バイト列を返す。
 
     Args:
         name: 絵文字ファイル名（拡張子なし、例: "yatta-nya"）。
 
     Returns:
-        画像の GitHub Raw URL。
+        PNG 画像のバイト列。ファイルが存在しないか該当名が見つからない場合は None。
     """
-    return _IMAGE_BASE_URL.format(name=name)
+    if not ANNOTATIONS_PATH.exists():
+        return None
+    with ANNOTATIONS_PATH.open(encoding="utf-8") as f:
+        records: list[dict[str, object]] = json.load(f)
+    for record in records:
+        if record.get("name") == name:
+            b64 = record.get("image_base64")
+            if isinstance(b64, str) and b64:
+                return base64.b64decode(b64)
+    return None
 
 
 def validate_input(text: str) -> tuple[bool, str]:
@@ -51,11 +57,11 @@ def validate_input(text: str) -> tuple[bool, str]:
     """
     stripped = text.strip()
     if not stripped:
-        return False, "文章を入力してください。"
+        return False, "Please enter some text."
     if len(text) > _MAX_INPUT_LENGTH:
         return True, (
-            f"入力が {_MAX_INPUT_LENGTH} 文字を超えているため、"
-            f"先頭 {_MAX_INPUT_LENGTH} 文字で提案します。"
+            f"Input exceeds {_MAX_INPUT_LENGTH} characters. "
+            f"Only the first {_MAX_INPUT_LENGTH} characters will be used."
         )
     return True, ""
 
@@ -90,22 +96,22 @@ def render_app() -> None:  # pragma: no cover
     アノテーションファイルの存在チェック、テキスト入力、提案実行、
     結果の縦方向カード表示を行う。
     """
-    st.title("ネコチャン絵文字提案")
+    st.title("Nekochan Emoji Suggestions")
 
     # アノテーションファイル存在チェック（US2）
     if not check_annotations_exist():
         st.error(
-            "アノテーションファイルが見つかりません。\n\n"
-            "以下のコマンドを実行してアノテーションを構築してください:\n\n"
+            "Annotation file not found.\n\n"
+            "Please run the following command to build annotations:\n\n"
             "```\nnekochan-suggest build-annotations\n```"
         )
         st.stop()
         return
 
     # テキスト入力欄
-    text = st.text_area("提案する文章を入力してください", height=120)
+    text = st.text_area("Enter text to get emoji suggestions", height=120)
 
-    if st.button("提案する"):
+    if st.button("Suggest"):
         is_valid, message = validate_input(text)
         if not is_valid:
             st.warning(message)
@@ -120,18 +126,19 @@ def render_app() -> None:  # pragma: no cover
         try:
             results = run_suggestion(text)
         except Exception as e:  # noqa: BLE001
-            st.error(f"提案処理でエラーが発生しました: {e}")
+            st.error(f"Error during suggestion: {e}")
             return
 
         # 結果表示（縦方向カードレイアウト）
         if not results:
-            st.info("候補が見つかりませんでした。")
+            st.info("No suggestions found.")
             return
 
         for result in results:
-            url = build_image_url(result.name)
-            st.image(url, width=64)
-            st.write(f"**{result.name}** — スコア: {result.score:.3f}")
+            image_bytes = get_image_bytes(result.name)
+            if image_bytes is not None:
+                st.image(image_bytes, width=64)
+            st.write(f"**{result.name}** — score: {result.score:.3f}")
             st.markdown("---")
 
 

@@ -27,38 +27,74 @@ def mock_suggest() -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
-# T005: build_image_url() の単体テスト
+# T005: get_image_bytes() の単体テスト
 # ---------------------------------------------------------------------------
 
 
-class TestBuildImageUrl:
-    """build_image_url() のユニットテスト。"""
+class TestGetImageBytes:
+    """get_image_bytes() のユニットテスト。"""
 
-    def test_yatta_nya_url(self) -> None:
-        """yatta-nya の URL が正しく構築されることを確認する。"""
-        from nekochan_suggest._app import build_image_url
+    def test_returns_image_bytes_when_found(  # noqa: E501
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """name が一致するエントリの画像バイト列を返すことを確認する。"""
+        import base64
+        import json
 
-        url = build_image_url("yatta-nya")
-        expected = (
-            "https://raw.githubusercontent.com/takanory/sphinx-nekochan"
-            "/main/sphinx_nekochan/images/yatta-nya.png"
-        )
-        assert url == expected
+        from nekochan_suggest._app import get_image_bytes
 
-    def test_url_ends_with_png(self) -> None:
-        """URL が .png で終わることを確認する。"""
-        from nekochan_suggest._app import build_image_url
+        png_bytes = b"FAKEPNG"
+        fake_data = [
+            {
+                "name": "yatta-nya",
+                "image_base64": base64.b64encode(png_bytes).decode(),
+                "image_mimetype": "image/png",
+            }
+        ]
+        fake_path = tmp_path / "annotations.json"
+        fake_path.write_text(json.dumps(fake_data))
 
-        url = build_image_url("neko")
-        assert url.endswith(".png")
+        with patch("nekochan_suggest._app.ANNOTATIONS_PATH", fake_path):
+            result = get_image_bytes("yatta-nya")
 
-    def test_name_embedded_in_url(self) -> None:
-        """絵文字名が URL に含まれることを確認する。"""
-        from nekochan_suggest._app import build_image_url
+        assert result == png_bytes
 
-        name = "any-emoji-name"
-        url = build_image_url(name)
-        assert name in url
+    def test_returns_none_when_name_not_found(  # noqa: E501
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """name が一致しない場合は None を返すことを確認する。"""
+        import base64
+        import json
+
+        from nekochan_suggest._app import get_image_bytes
+
+        fake_data = [
+            {
+                "name": "other-emoji",
+                "image_base64": base64.b64encode(b"FAKEPNG").decode(),
+                "image_mimetype": "image/png",
+            }
+        ]
+        fake_path = tmp_path / "annotations.json"
+        fake_path.write_text(json.dumps(fake_data))
+
+        with patch("nekochan_suggest._app.ANNOTATIONS_PATH", fake_path):
+            result = get_image_bytes("yatta-nya")
+
+        assert result is None
+
+    def test_returns_none_when_file_missing(
+        self, tmp_path: pytest.TempPathFactory
+    ) -> None:
+        """annotations.json が存在しない場合は None を返すことを確認する。"""
+        from nekochan_suggest._app import get_image_bytes
+
+        fake_path = tmp_path / "nonexistent.json"
+
+        with patch("nekochan_suggest._app.ANNOTATIONS_PATH", fake_path):
+            result = get_image_bytes("yatta-nya")
+
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
