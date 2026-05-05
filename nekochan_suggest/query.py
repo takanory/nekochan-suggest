@@ -103,9 +103,13 @@ def _load_config() -> dict[str, str]:
 
 def _embed_text(text: str, embed_model: str) -> list[float]:
     """クエリテキストを埋め込みベクトルへ変換する。"""
+    import warnings
+
     import sentence_transformers
 
-    model = sentence_transformers.SentenceTransformer(embed_model)
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=r"Accessing `__path__`")
+        model = sentence_transformers.SentenceTransformer(embed_model)
     encoded = model.encode(f"query: {text}")
     vector = encoded.tolist() if hasattr(encoded, "tolist") else list(encoded)
     if not vector:
