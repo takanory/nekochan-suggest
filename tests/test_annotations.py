@@ -365,33 +365,29 @@ class TestBuildAllAnnotations:
         assert last_record["image_base64"] == ""
         assert last_record["image_mimetype"] == ""
 
-    def test_gif_image_not_passed_to_llm(self, mock_deps: dict) -> None:
-        """GIF 画像の絵文字は LLM 呼び出しをスキップする。"""
+    def test_gif_image_passed_to_llm(self, mock_deps: dict) -> None:
+        """GIF 画像の絵文字は LLM に渡される。"""
         mock_deps["fetch_emoji"].return_value = {
             "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
             "nemui-nya": {"aliases": ["nemui"], "base64": "iVBO=", "mimetype": "image/png"},
-            "niko-nya": {"aliases": ["niko"], "base64": "iVBO=", "mimetype": "image/png"},
-            "hare-nya": {"aliases": ["hare"], "base64": "iVBO=", "mimetype": "image/png"},
         }
         build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
 
-        # yatta-nya (GIF) はスキップされるため generate_annotation が呼ばれない
         called_names = [c.args[0] for c in mock_deps["gen"].call_args_list]
-        assert "yatta-nya" not in called_names
-        # PNG は通常処理される
+        assert "yatta-nya" in called_names
         assert "nemui-nya" in called_names
 
-    def test_gif_skipped_reported_to_stderr(self, mock_deps: dict, capsys: pytest.CaptureFixture[str]) -> None:
-        """GIF スキップ一覧が stderr に報告される。"""
+    def test_gif_image_base64_saved_in_record(self, mock_deps: dict) -> None:
+        """GIF 画像の image_base64 がレコードに保存される。"""
         mock_deps["fetch_emoji"].return_value = {
             "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
-            "nemui-nya": {"aliases": ["nemui"], "base64": "iVBO=", "mimetype": "image/png"},
         }
         build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
 
-        captured = capsys.readouterr()
-        assert "GIF" in captured.err
-        assert "yatta-nya" in captured.err
+        saved_records = mock_deps["save"].call_args[0][0]
+        record = next(r for r in saved_records if r["name"] == "yatta-nya")
+        assert record["image_base64"] == "R0l="
+        assert record["image_mimetype"] == "image/gif"
 
 
 # ---------------------------------------------------------------------------

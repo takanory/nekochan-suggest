@@ -214,7 +214,6 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
     existing_names = {str(r["name"]) for r in existing_records}
     records: list[dict[str, object]] = list(existing_records)
     skipped: list[str] = []
-    skipped_gif: list[str] = []
     total = len(aliases_dict)
     dry_run_count = 0
 
@@ -227,12 +226,6 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
             continue
 
         emoji_entry = emoji_data.get(name, {})
-        mimetype = str(emoji_entry.get("mimetype", ""))
-        # GIF はマルチモーダルモデルで非対応のためスキップ
-        if mimetype == "image/gif":
-            logger.debug("絵文字 '%s' は GIF のためスキップします", name)
-            skipped_gif.append(name)
-            continue
         image_b64 = str(emoji_entry.get("base64", ""))
 
         try:
@@ -266,9 +259,6 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
     sys.stderr.write("\n")
     sys.stderr.flush()
 
-    if skipped_gif:
-        sys.stderr.write(f"Skipped {len(skipped_gif)} GIF emojis (not supported by multimodal model): {', '.join(skipped_gif)}\n")
-        sys.stderr.flush()
     if skipped:
         sys.stderr.write(f"Skipped {len(skipped)} emojis due to errors: {', '.join(skipped)}\n")
         sys.stderr.flush()
