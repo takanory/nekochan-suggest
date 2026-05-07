@@ -10,7 +10,6 @@ import logging
 import math
 import os
 import tomllib
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 ANNOTATIONS_PATH = (
     Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
-)  # noqa: E501
+)
 CONFIG_PATH = Path.home() / ".config" / "nekochan-suggest" / "config.toml"
 DEFAULT_EMBED_MODEL = "intfloat/multilingual-e5-base"
 DEFAULT_LLM_MODEL = "qwen3.5:2b"
@@ -38,7 +37,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     if len(a) != len(b):
         logger.debug(
             "ベクトル次元が一致しないため 0.0 を返します: %s != %s", len(a), len(b)
-        )  # noqa: E501
+        )
         return 0.0
 
     dot = sum(left * right for left, right in zip(a, b))
@@ -107,12 +106,9 @@ def _load_config() -> dict[str, str]:
 
 def _embed_text(text: str, embed_model: str) -> list[float]:
     """クエリテキストを埋め込みベクトルへ変換する。"""
-    logging.getLogger("transformers").setLevel(logging.ERROR)
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message=r"Accessing `__path__`")
-        import sentence_transformers
+    import sentence_transformers
 
-        model = sentence_transformers.SentenceTransformer(embed_model)
+    model = sentence_transformers.SentenceTransformer(embed_model)
     encoded = model.encode(f"query: {text}")
     vector = encoded.tolist() if hasattr(encoded, "tolist") else list(encoded)
     if not vector:
