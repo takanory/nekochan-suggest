@@ -17,7 +17,7 @@ nekochan-suggest = "nekochan_suggest.cli:main"
 nekochan-suggest-ui = "nekochan_suggest.ui:main"
 
 [project.optional-dependencies]
-gui = ["streamlit"]
+gui = ["streamlit", "torchvision"]
 
 [dependency-groups]
 dev = [

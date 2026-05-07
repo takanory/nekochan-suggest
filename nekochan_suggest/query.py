@@ -5,19 +5,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import logging
 import math
 import os
-from pathlib import Path
 import tomllib
+from dataclasses import dataclass
+from pathlib import Path
 from typing import cast
-
 
 logger = logging.getLogger(__name__)
 
-ANNOTATIONS_PATH = Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
+ANNOTATIONS_PATH = (
+    Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
+)
 CONFIG_PATH = Path.home() / ".config" / "nekochan-suggest" / "config.toml"
 DEFAULT_EMBED_MODEL = "intfloat/multilingual-e5-base"
 DEFAULT_LLM_MODEL = "qwen3.5:2b"
@@ -34,7 +35,9 @@ class SuggestionResult:
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """2 つのベクトルのコサイン類似度を返す。"""
     if len(a) != len(b):
-        logger.debug("ベクトル次元が一致しないため 0.0 を返します: %s != %s", len(a), len(b))
+        logger.debug(
+            "ベクトル次元が一致しないため 0.0 を返します: %s != %s", len(a), len(b)
+        )
         return 0.0
 
     dot = sum(left * right for left, right in zip(a, b))
