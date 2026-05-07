@@ -21,7 +21,7 @@ ANNOTATIONS_PATH = (
 )
 CONFIG_PATH = Path.home() / ".config" / "nekochan-suggest" / "config.toml"
 DEFAULT_EMBED_MODEL = "intfloat/multilingual-e5-base"
-DEFAULT_LLM_MODEL = "qwen3.5:2b"
+DEFAULT_LLM_MODEL = "gemma4:e4b"
 
 
 @dataclass
