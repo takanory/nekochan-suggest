@@ -84,10 +84,12 @@ NEKOCHAN_GIF_MAX_FRAMES=2 nekochan-suggest build-annotations --dry-run
 - **FR-004**: GIF ごとに抽出するフレームの最大数は `NEKOCHAN_GIF_MAX_FRAMES` 環境変数で設定可能でなければならない。
 - **FR-005**: デフォルトの最大フレーム数は 4 でなければならない。
 - **FR-006**: GIF のフレーム数が最大値より少ない場合は全フレームを使用しなければならない。
-- **FR-007**: GIF のフレーム数が最大値を超える場合、均等間隔でフレームをサンプリングしなければならない。
+- **FR-007**: GIF のフレーム数が最大値を超える場合、均等間隔でフレームをサンプリングしなければならない。インデックスは `i * (total - 1) // (N - 1)` (i = 0, 1, ..., N-1) で算出し、最初と最後のフレームを必ず含む。N=1 の特殊ケースではインデックス 0 のみを使用する。
 - **FR-008**: PNG/JPEG などの非 GIF 画像は変更なく単一画像として処理されなければならない。
 - **FR-009**: `annotations.json` に保存する `image_base64` と `image_mimetype` は元の GIF データのまま保持されなければならない（変換後フレームは保存しない）。
 - **FR-010**: フレーム抽出エラーは既存のスキップ機構（ログ記録・警告）で処理されなければならない。
+- **FR-011**: GIF を複数フレームで処理する場合、LLM へのプロンプト先頭にアニメーションである旨とフレーム数を追記しなければならない（例: "These are N frames from an animated GIF emoji. "）。
+- **FR-012**: `build-annotations` 実行時、既存の GIF アノテーションエントリ（1フレーム方式で生成されたものを含む）はマルチフレーム方式で上書き再生成されなければならない。
 
 ### Key Entities
 
@@ -100,13 +102,27 @@ NEKOCHAN_GIF_MAX_FRAMES=2 nekochan-suggest build-annotations --dry-run
 
 - **SC-001**: nekochan 絵文字セット内の全 GIF 絵文字がエラーなく処理される（GIF 関連のスキップがエラーレポートに現れない）。
 - **SC-002**: アニメーション GIF 絵文字のアノテーションにアニメーション的な文脈が反映されている — データセットからサンプリングした 5 件の GIF 絵文字を手動確認して検証。
-- **SC-003**: GIF 絵文字1件あたりの処理時間が同等ファイルサイズの PNG 絵文字の 3 倍を超えない。
+- **SC-003**: GIF 絵文字1件あたりの処理時間が同等ファイルサイズの PNG 絵文字の 3 倍を超えない（自動計測は困難なため、手動の定性的確認とする）。
 - **SC-004**: フレーム抽出関数はユニットテストで 100% カバレッジを達成する。
+
+### Non-Functional Requirements
+
+- **NF-001**: GIF フレーム抽出時、抽出フレーム数を DEBUG レベルでログ出力しなければならない（例: `"Extracted 4 frames from gif: cat_wave.gif"`）。
+
+## Clarifications
+
+### Session 2026-05-08
+
+- Q: GIF フレームのサンプリング方法（フレーム数が最大値を超える場合） → A: 均等間隔（先頭・末尾を含む）: インデックス `i * (total-1) // (N-1)` (i=0..N-1)
+- Q: マルチフレーム処理時にプロンプトへアニメーション旨を追記するか → A: 追記する（"These are N frames from an animated GIF emoji."）
+- Q: 既存の GIF アノテーション（1フレーム方式で生成済み）を再生成するか → A: 再生成する（既存エントリを上書き）
+- Q: Pillow を `pyproject.toml` のどこに追加するか → A: core dependencies
+- Q: GIF 処理時に抽出フレーム数をログ出力するか → A: DEBUG レベルで出力する（例: "Extracted 4 frames from gif: cat_wave.gif"）
 
 ## Assumptions
 
 - Ollama（gemma4:e4b）は `api/generate` リクエストの `images` 配列で複数画像を受け付ける。
-- Pillow は `005-gif-support` ブランチで導入済みであり環境に存在する。
+- Pillow は `005-gif-support` ブランチで導入済みであり環境に存在する。`pyproject.toml` の `[project.dependencies]`（core）に追加する。
 - デフォルト4フレームは、トークン予算を超えずに典型的なねこちゃん GIF のアニメーション意図を捉えるのに十分である。
 - フレームは均等間隔でサンプリングする（先頭 N フレームではなく）。
 

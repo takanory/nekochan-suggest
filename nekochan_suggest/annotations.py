@@ -9,6 +9,8 @@ JSON ファイルに保存する。
 
 from __future__ import annotations
 
+import base64
+import io
 import json
 import logging
 import sys
@@ -20,6 +22,26 @@ logger = logging.getLogger(__name__)
 
 ALIASES_URL = "https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/data/aliases.json"
 NEKOCHAN_EMOJI_URL = "https://raw.githubusercontent.com/takanory/sphinx-nekochan/main/sphinx_nekochan/data/nekochan_emoji.json"
+
+
+def gif_first_frame_as_png_base64(gif_base64: str) -> str:
+    """GIF base64 の最初のフレームを PNG に変換し base64 で返す。
+
+    Args:
+        gif_base64: GIF 画像の base64 文字列。
+
+    Returns:
+        1 枚目フレームを PNG 変換した base64 文字列。
+    """
+    from PIL import Image
+
+    gif_bytes = base64.b64decode(gif_base64)
+    with Image.open(io.BytesIO(gif_bytes)) as img:
+        img.seek(0)
+        frame = img.convert("RGBA")
+    buf = io.BytesIO()
+    frame.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
 
 
 def fetch_aliases(url: str, timeout: int) -> dict[str, list[str]]:
@@ -226,7 +248,11 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
             continue
 
         emoji_entry = emoji_data.get(name, {})
+        mimetype = str(emoji_entry.get("mimetype", ""))
         image_b64 = str(emoji_entry.get("base64", ""))
+        # GIF は PNG に変換してから LLM に渡す
+        if mimetype == "image/gif" and image_b64:
+            image_b64 = gif_first_frame_as_png_base64(image_b64)
 
         try:
             annotation = generate_annotation(name, alias_list, ollama_url, llm_model, timeout, image_b64)

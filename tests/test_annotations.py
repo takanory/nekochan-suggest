@@ -16,6 +16,7 @@ from nekochan_suggest.annotations import (
     fetch_emoji_data,
     generate_annotation,
     generate_embedding,
+    gif_first_frame_as_png_base64,
     load_existing_annotations,
     save_annotations_file,
 )
@@ -366,28 +367,73 @@ class TestBuildAllAnnotations:
         assert last_record["image_mimetype"] == ""
 
     def test_gif_image_passed_to_llm(self, mock_deps: dict) -> None:
-        """GIF 画像の絵文字は LLM に渡される。"""
+        """GIF 画像の絵文字は PNG 変換されて LLM に渡される。"""
         mock_deps["fetch_emoji"].return_value = {
             "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
             "nemui-nya": {"aliases": ["nemui"], "base64": "iVBO=", "mimetype": "image/png"},
         }
-        build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+        with patch("nekochan_suggest.annotations.gif_first_frame_as_png_base64", return_value="PNG_B64") as mock_conv:
+            build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
 
+        # GIF 変換が呼ばれたことを確認
+        mock_conv.assert_called_once_with("R0l=")
         called_names = [c.args[0] for c in mock_deps["gen"].call_args_list]
         assert "yatta-nya" in called_names
         assert "nemui-nya" in called_names
 
     def test_gif_image_base64_saved_in_record(self, mock_deps: dict) -> None:
-        """GIF 画像の image_base64 がレコードに保存される。"""
+        """GIF 画像の image_base64 がレコードに元の GIF base64 で保存される。"""
         mock_deps["fetch_emoji"].return_value = {
             "yatta-nya": {"aliases": ["yatta"], "base64": "R0l=", "mimetype": "image/gif"},
         }
-        build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
+        with patch("nekochan_suggest.annotations.gif_first_frame_as_png_base64", return_value="PNG_B64"):
+            build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
 
         saved_records = mock_deps["save"].call_args[0][0]
         record = next(r for r in saved_records if r["name"] == "yatta-nya")
+        # 保存されるのは元の GIF base64（変換前）
         assert record["image_base64"] == "R0l="
         assert record["image_mimetype"] == "image/gif"
+
+
+# ---------------------------------------------------------------------------
+# gif_first_frame_as_png_base64() 単体テスト
+# ---------------------------------------------------------------------------
+
+
+class TestGifFirstFrameAsPngBase64:
+    """gif_first_frame_as_png_base64() の単体テスト。"""
+
+    def _make_gif_base64(self) -> str:
+        """1x1 ピクセルの GIF を base64 で返す。"""
+        import base64
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        img = Image.new("RGBA", (1, 1), (255, 0, 0, 255))
+        img.save(buf, format="GIF")
+        return base64.b64encode(buf.getvalue()).decode()
+
+    def test_returns_png_base64(self) -> None:
+        """GIF base64 を渡すと PNG base64 が返る。"""
+        import base64
+        import io
+
+        from PIL import Image
+
+        gif_b64 = self._make_gif_base64()
+        result = gif_first_frame_as_png_base64(gif_b64)
+        png_bytes = base64.b64decode(result)
+        img = Image.open(io.BytesIO(png_bytes))
+        assert img.format == "PNG"
+
+    def test_output_is_string(self) -> None:
+        """戻り値が str であることを確認する。"""
+        gif_b64 = self._make_gif_base64()
+        result = gif_first_frame_as_png_base64(gif_b64)
+        assert isinstance(result, str)
 
 
 # ---------------------------------------------------------------------------
