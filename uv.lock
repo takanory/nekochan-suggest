@@ -582,6 +582,7 @@ name = "nekochan-suggest"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pillow" },
     { name = "sentence-transformers" },
 ]
 
@@ -601,6 +602,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pillow", specifier = ">=10.0" },
     { name = "sentence-transformers", specifier = ">=3.0" },
     { name = "streamlit", marker = "extra == 'gui'" },
     { name = "torchvision", marker = "extra == 'gui'" },

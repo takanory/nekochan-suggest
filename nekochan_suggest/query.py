@@ -95,12 +95,17 @@ def _load_config() -> dict[str, str]:
         "timeout",
         "30",
     )
+    gif_max_frames = os.environ.get("NEKOCHAN_GIF_MAX_FRAMES") or config_data.get(
+        "gif_max_frames",
+        "4",
+    )
 
     return {
         "embed_model": str(embed_model),
         "llm_model": str(llm_model),
         "ollama_url": str(ollama_url),
         "timeout": str(timeout),
+        "gif_max_frames": str(gif_max_frames),
     }
 
 

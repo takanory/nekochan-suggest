@@ -108,8 +108,8 @@ def main() -> None:
 
     print(f"生成完了: {OUTPUT_PATH}")  # noqa: T201
     print(f"  正常レコード数: {len(NORMAL_RECORDS)}")  # noqa: T201
-    print(f"  embedding 欠損レコード数: 1")  # noqa: T201
-    print(f"  embedding 空レコード数: 1")  # noqa: T201
+    print("  embedding 欠損レコード数: 1")  # noqa: T201
+    print("  embedding 空レコード数: 1")  # noqa: T201
     print(f"  合計: {len(records)} レコード")  # noqa: T201
 
 

@@ -11,11 +11,11 @@ from unittest.mock import patch
 
 import pytest
 
-from nekochan_suggest.cli import _handle_query
 from nekochan_suggest.cli import (
-    _build_query_parser,
     _build_build_annotations_parser,
+    _build_query_parser,
     _handle_build_annotations,
+    _handle_query,
     _is_model_cached,
     _resolve_model_cache_path,
     _resolve_query_text,
@@ -72,10 +72,11 @@ def test_cli_text_stub_response() -> None:
 
     環境に annotations.json が存在する場合はスキップ（環境依存テスト）。
     """
-    import os
     from pathlib import Path
 
-    annotations_path = Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
+    annotations_path = (
+        Path.home() / ".local" / "share" / "nekochan-suggest" / "annotations.json"
+    )
     if annotations_path.exists():
         pytest.skip("annotations.json が存在するため環境非依存テストでカバー済み")
 
@@ -86,19 +87,24 @@ def test_cli_text_stub_response() -> None:
     )
     # アノテーションファイルが不在のため終了コード 1 と適切なエラーを返す
     assert result.returncode == 1, f"終了コードが 1 でない: {result.stderr}"
-    assert "annotations file not found" in result.stderr, "期待するエラーメッセージが含まれない"
+    assert "annotations file not found" in result.stderr, (
+        "期待するエラーメッセージが含まれない"
+    )
 
 
 def test_handle_query_formats_text_output(capsys: pytest.CaptureFixture[str]) -> None:
     """通常出力は順位・名前・小数点 2 桁のスコアで表示する。"""
     args = argparse.Namespace(text="おはよう", count=3, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        return_value=[
-            SuggestionResult("yatta-nya", 0.8734567),
-            SuggestionResult("niko-nya", 0.8213456),
-        ],
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            return_value=[
+                SuggestionResult("yatta-nya", 0.8734567),
+                SuggestionResult("niko-nya", 0.8213456),
+            ],
+        ),
     ):
         _handle_query(args)
 
@@ -110,9 +116,12 @@ def test_handle_query_formats_json_output(capsys: pytest.CaptureFixture[str]) ->
     """JSON 出力は score を丸めずに返す。"""
     args = argparse.Namespace(text="おはよう", count=3, json=True)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        return_value=[SuggestionResult("nemui-nya", 0.9123456)],
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            return_value=[SuggestionResult("nemui-nya", 0.9123456)],
+        ),
     ):
         _handle_query(args)
 
@@ -125,10 +134,13 @@ def test_handle_query_passes_explicit_count() -> None:
     """--count 指定値を suggest() に渡す。"""
     args = argparse.Namespace(text="おはよう", count=5, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        return_value=[],
-    ) as mock_suggest:
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            return_value=[],
+        ) as mock_suggest,
+    ):
         _handle_query(args)
 
     mock_suggest.assert_called_once_with("おはよう", count=5)
@@ -141,10 +153,13 @@ def test_handle_query_prefers_cli_argument_over_stdin(
     args = argparse.Namespace(text="CLI入力", count=3, json=False)
 
     with patch("sys.stdin", StringIO("stdin入力")):
-        with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-            "nekochan_suggest.cli.suggest",
-            return_value=[SuggestionResult("hare-nya", 0.8)],
-        ) as mock_suggest:
+        with (
+            patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+            patch(
+                "nekochan_suggest.cli.suggest",
+                return_value=[SuggestionResult("hare-nya", 0.8)],
+            ) as mock_suggest,
+        ):
             _handle_query(args)
 
     captured = capsys.readouterr()
@@ -185,9 +200,12 @@ def test_handle_query_missing_annotations_error(
     """アノテーションファイル不在時のエラーを整形する。"""
     args = argparse.Namespace(text="ok", count=3, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        side_effect=FileNotFoundError,
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            side_effect=FileNotFoundError,
+        ),
     ):
         with pytest.raises(SystemExit) as exc_info:
             _handle_query(args)
@@ -222,7 +240,10 @@ cli.main()
     )
 
     assert result.returncode == 1
-    assert result.stderr.strip() == "Error: provide text as an argument or pipe it via stdin."
+    assert (
+        result.stderr.strip()
+        == "Error: provide text as an argument or pipe it via stdin."
+    )
 
 
 @pytest.mark.integration
@@ -293,18 +314,20 @@ def test_build_build_annotations_parser_returns_parser() -> None:
 
 def test_main_dispatches_query(capsys: pytest.CaptureFixture[str]) -> None:
     """main() がクエリサブコマンドを _handle_query へディスパッチする。"""
-    with patch("sys.argv", ["nekochan-suggest", "おはよう"]), patch(
-        "nekochan_suggest.cli._handle_query"
-    ) as mock_handle:
+    with (
+        patch("sys.argv", ["nekochan-suggest", "おはよう"]),
+        patch("nekochan_suggest.cli._handle_query") as mock_handle,
+    ):
         main()
     mock_handle.assert_called_once()
 
 
 def test_main_dispatches_build_annotations(capsys: pytest.CaptureFixture[str]) -> None:
     """main() が build-annotations を _handle_build_annotations へディスパッチする。"""
-    with patch("sys.argv", ["nekochan-suggest", "build-annotations"]), patch(
-        "nekochan_suggest.cli._handle_build_annotations"
-    ) as mock_handle:
+    with (
+        patch("sys.argv", ["nekochan-suggest", "build-annotations"]),
+        patch("nekochan_suggest.cli._handle_build_annotations") as mock_handle,
+    ):
         main()
     mock_handle.assert_called_once()
 
@@ -316,12 +339,15 @@ def test_handle_build_annotations_calls_build(
     args = argparse.Namespace(dry_run=False, timeout=None)
     with (
         patch("nekochan_suggest.cli.build_all_annotations") as mock_build,
-        patch("nekochan_suggest.cli._load_config", return_value={
-            "ollama_url": "http://localhost:11434",
-            "llm_model": "qwen3.5",
-            "embed_model": "intfloat/multilingual-e5-base",
-            "timeout": "30",
-        }),
+        patch(
+            "nekochan_suggest.cli._load_config",
+            return_value={
+                "ollama_url": "http://localhost:11434",
+                "llm_model": "qwen3.5",
+                "embed_model": "intfloat/multilingual-e5-base",
+                "timeout": "30",
+            },
+        ),
     ):
         _handle_build_annotations(args)
     mock_build.assert_called_once()
@@ -333,10 +359,17 @@ def test_handle_query_prints_model_download_message(
     """モデル未キャッシュ時に stderr へダウンロードメッセージを出力する。"""
     args = argparse.Namespace(text="おはよう", count=3, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=False), patch(
-        "nekochan_suggest.cli.suggest",
-        return_value=[SuggestionResult("yatta-nya", 0.9)],
-    ), patch("nekochan_suggest.cli._load_config", return_value={"embed_model": "intfloat/multilingual-e5-base"}):
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=False),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            return_value=[SuggestionResult("yatta-nya", 0.9)],
+        ),
+        patch(
+            "nekochan_suggest.cli._load_config",
+            return_value={"embed_model": "intfloat/multilingual-e5-base"},
+        ),
+    ):
         _handle_query(args)
 
     captured = capsys.readouterr()
@@ -347,10 +380,17 @@ def test_handle_query_oserror(capsys: pytest.CaptureFixture[str]) -> None:
     """suggest() が OSError を投げた場合に適切なエラーを返す。"""
     args = argparse.Namespace(text="ok", count=3, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        side_effect=OSError("network error"),
-    ), patch("nekochan_suggest.cli._load_config", return_value={"embed_model": "intfloat/multilingual-e5-base"}):
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            side_effect=OSError("network error"),
+        ),
+        patch(
+            "nekochan_suggest.cli._load_config",
+            return_value={"embed_model": "intfloat/multilingual-e5-base"},
+        ),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             _handle_query(args)
 
@@ -363,10 +403,17 @@ def test_handle_query_runtime_error(capsys: pytest.CaptureFixture[str]) -> None:
     """suggest() が RuntimeError を投げた場合に適切なエラーを返す。"""
     args = argparse.Namespace(text="ok", count=3, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        side_effect=RuntimeError("encode failed"),
-    ), patch("nekochan_suggest.cli._load_config", return_value={"embed_model": "intfloat/multilingual-e5-base"}):
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            side_effect=RuntimeError("encode failed"),
+        ),
+        patch(
+            "nekochan_suggest.cli._load_config",
+            return_value={"embed_model": "intfloat/multilingual-e5-base"},
+        ),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             _handle_query(args)
 
@@ -379,10 +426,17 @@ def test_handle_query_value_error(capsys: pytest.CaptureFixture[str]) -> None:
     """suggest() が ValueError を投げた場合に適切なエラーを返す。"""
     args = argparse.Namespace(text="ok", count=3, json=False)
 
-    with patch("nekochan_suggest.cli._is_model_cached", return_value=True), patch(
-        "nekochan_suggest.cli.suggest",
-        side_effect=ValueError("empty embedding"),
-    ), patch("nekochan_suggest.cli._load_config", return_value={"embed_model": "intfloat/multilingual-e5-base"}):
+    with (
+        patch("nekochan_suggest.cli._is_model_cached", return_value=True),
+        patch(
+            "nekochan_suggest.cli.suggest",
+            side_effect=ValueError("empty embedding"),
+        ),
+        patch(
+            "nekochan_suggest.cli._load_config",
+            return_value={"embed_model": "intfloat/multilingual-e5-base"},
+        ),
+    ):
         with pytest.raises(SystemExit) as exc_info:
             _handle_query(args)
 
@@ -408,9 +462,14 @@ def test_resolve_model_cache_path_default() -> None:
     assert "models--intfloat--multilingual-e5-base" in str(path)
 
 
-def test_is_model_cached_returns_false_for_nonexistent(tmp_path: pytest.TempPathFactory) -> None:
+def test_is_model_cached_returns_false_for_nonexistent(
+    tmp_path: pytest.TempPathFactory,
+) -> None:
     """存在しないモデルは False を返す。"""
-    with patch("nekochan_suggest.cli._resolve_model_cache_path", return_value=tmp_path / "nonexistent"):
+    with patch(
+        "nekochan_suggest.cli._resolve_model_cache_path",
+        return_value=tmp_path / "nonexistent",
+    ):
         result = _is_model_cached("some-model")
     assert result is False
 
@@ -423,19 +482,24 @@ def test_is_model_cached_returns_false_for_nonexistent(tmp_path: pytest.TempPath
 class TestHandleBuildAnnotations:
     """_handle_build_annotations() の単体テスト。"""
 
-    def _make_args(self, dry_run: bool = False, timeout: int | None = None) -> argparse.Namespace:
+    def _make_args(
+        self, dry_run: bool = False, timeout: int | None = None
+    ) -> argparse.Namespace:
         return argparse.Namespace(dry_run=dry_run, timeout=timeout)
 
     def test_dry_run_calls_build_with_dry_run_true(self) -> None:
         """--dry-run フラグで build_all_annotations(dry_run=True, config=...) が呼ばれる。"""
         with (
             patch("nekochan_suggest.cli.build_all_annotations") as mock_build,
-            patch("nekochan_suggest.cli._load_config", return_value={
-                "ollama_url": "http://localhost:11434",
-                "llm_model": "qwen3.5",
-                "embed_model": "intfloat/multilingual-e5-base",
-                "timeout": "30",
-            }),
+            patch(
+                "nekochan_suggest.cli._load_config",
+                return_value={
+                    "ollama_url": "http://localhost:11434",
+                    "llm_model": "qwen3.5",
+                    "embed_model": "intfloat/multilingual-e5-base",
+                    "timeout": "30",
+                },
+            ),
         ):
             _handle_build_annotations(self._make_args(dry_run=True))
 
@@ -451,28 +515,41 @@ class TestHandleBuildAnnotations:
             captured_config.update(config)
 
         with (
-            patch("nekochan_suggest.cli.build_all_annotations", side_effect=capture_build),
-            patch("nekochan_suggest.cli._load_config", return_value={
-                "ollama_url": "http://localhost:11434",
-                "llm_model": "qwen3.5",
-                "embed_model": "intfloat/multilingual-e5-base",
-                "timeout": "30",
-            }),
+            patch(
+                "nekochan_suggest.cli.build_all_annotations", side_effect=capture_build
+            ),
+            patch(
+                "nekochan_suggest.cli._load_config",
+                return_value={
+                    "ollama_url": "http://localhost:11434",
+                    "llm_model": "qwen3.5",
+                    "embed_model": "intfloat/multilingual-e5-base",
+                    "timeout": "30",
+                },
+            ),
         ):
             _handle_build_annotations(self._make_args(timeout=60))
 
         assert captured_config["timeout"] == "60"
 
-    def test_value_error_from_fetch_exits_with_1(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_value_error_from_fetch_exits_with_1(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """aliases fetch 失敗（ValueError）で stderr にエラーメッセージ、終了コード 1。"""
         with (
-            patch("nekochan_suggest.cli.build_all_annotations", side_effect=ValueError("HTTP 404")),
-            patch("nekochan_suggest.cli._load_config", return_value={
-                "ollama_url": "http://localhost:11434",
-                "llm_model": "qwen3.5",
-                "embed_model": "intfloat/multilingual-e5-base",
-                "timeout": "30",
-            }),
+            patch(
+                "nekochan_suggest.cli.build_all_annotations",
+                side_effect=ValueError("HTTP 404"),
+            ),
+            patch(
+                "nekochan_suggest.cli._load_config",
+                return_value={
+                    "ollama_url": "http://localhost:11434",
+                    "llm_model": "qwen3.5",
+                    "embed_model": "intfloat/multilingual-e5-base",
+                    "timeout": "30",
+                },
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             _handle_build_annotations(self._make_args())
@@ -481,16 +558,24 @@ class TestHandleBuildAnnotations:
         captured = capsys.readouterr()
         assert "Error: failed to fetch aliases.json:" in captured.err
 
-    def test_oserror_from_ollama_exits_with_1(self, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_oserror_from_ollama_exits_with_1(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Ollama 未起動（OSError）で stderr にエラーメッセージ、終了コード 1。"""
         with (
-            patch("nekochan_suggest.cli.build_all_annotations", side_effect=OSError("connection refused")),
-            patch("nekochan_suggest.cli._load_config", return_value={
-                "ollama_url": "http://localhost:11434",
-                "llm_model": "qwen3.5",
-                "embed_model": "intfloat/multilingual-e5-base",
-                "timeout": "30",
-            }),
+            patch(
+                "nekochan_suggest.cli.build_all_annotations",
+                side_effect=OSError("connection refused"),
+            ),
+            patch(
+                "nekochan_suggest.cli._load_config",
+                return_value={
+                    "ollama_url": "http://localhost:11434",
+                    "llm_model": "qwen3.5",
+                    "embed_model": "intfloat/multilingual-e5-base",
+                    "timeout": "30",
+                },
+            ),
             pytest.raises(SystemExit) as exc_info,
         ):
             _handle_build_annotations(self._make_args())

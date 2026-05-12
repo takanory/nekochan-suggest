@@ -9,12 +9,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import NoReturn
 
-from .query import SuggestionResult, _load_config, suggest
 from .annotations import build_all_annotations
+from .query import SuggestionResult, _load_config, suggest
 
 _SUBCOMMANDS = {"build-annotations"}
 
@@ -143,10 +143,17 @@ def _handle_query(args: argparse.Namespace) -> None:
     except RuntimeError as exc:
         _exit_with_error(f"Error: embedding failed: {exc}")
     except ValueError:
-        _exit_with_error("Error: unexpected embedding result. Check embed_model setting.")
+        _exit_with_error(
+            "Error: unexpected embedding result. Check embed_model setting."
+        )
 
     if args.json:
-        print(json.dumps({"suggestions": [_to_json_result(result) for result in results]}, ensure_ascii=False))  # noqa: T201
+        print(
+            json.dumps(
+                {"suggestions": [_to_json_result(result) for result in results]},
+                ensure_ascii=False,
+            )
+        )  # noqa: T201
         return
 
     for index, result in enumerate(results, start=1):
@@ -177,7 +184,14 @@ def _resolve_model_cache_path(model_name: str) -> Path:
     hub_root = Path(
         os.environ.get(
             "HUGGINGFACE_HUB_CACHE",
-            str(Path(os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))) / "hub"),
+            str(
+                Path(
+                    os.environ.get(
+                        "HF_HOME", str(Path.home() / ".cache" / "huggingface")
+                    )
+                )
+                / "hub"
+            ),
         )
     )
     return hub_root / f"models--{model_name.replace('/', '--')}"
