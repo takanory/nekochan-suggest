@@ -307,15 +307,9 @@ def build_all_annotations(dry_run: bool, config: dict[str, str]) -> None:  # noq
         ) from e
 
     existing_records = load_existing_annotations(ANNOTATIONS_PATH)
-    # GIF 既存エントリは再生成対象のためスキップしない（FR-012）
-    existing_names = {
-        str(r["name"])
-        for r in existing_records
-        if str(r.get("image_mimetype", "")) != "image/gif"
-    }
-    records: list[dict[str, object]] = [
-        r for r in existing_records if str(r.get("image_mimetype", "")) != "image/gif"
-    ]
+    # 既存エントリ（GIF 含む）はすべてスキップ対象とする
+    existing_names = {str(r["name"]) for r in existing_records}
+    records: list[dict[str, object]] = list(existing_records)
     skipped: list[str] = []
     total = len(aliases_dict)
     dry_run_count = 0

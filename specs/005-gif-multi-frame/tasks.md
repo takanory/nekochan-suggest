@@ -51,7 +51,7 @@ uv run pytest tests/test_annotations.py -v
 - [X] T006 [US1] `gif_frames_as_png_base64_list(gif_base64: str, max_frames: int) -> list[str]` を `nekochan_suggest/annotations.py` に実装する — Pillow `img.seek(idx)` + `.convert("RGBA")` + PNG 変換、サンプリング式 `i * (total-1) // (N-1)`、N=1 は index 0 のみ、日本語 docstring 付き（T002 テストが PASS になること）
 - [X] T007 [US1] `_build_annotation_prompt` に `gif_frame_count: int = 0` パラメータを追加し `nekochan_suggest/annotations.py` を更新する — gif_frame_count > 1 のとき `"These are {gif_frame_count} frames from an animated GIF emoji. "` をプロンプト先頭に追記（T003 テストが PASS になること）
 - [X] T008 [US1] `generate_annotation` のシグネチャを `image_base64: str = ""` → `images: list[str] | None = None, gif_frame_count: int = 0` に変更し `nekochan_suggest/annotations.py` を更新する — `images` が非空のとき `body["images"] = images`、`gif_frame_count` を `_build_annotation_prompt` に渡す（T004 テストが PASS になること）
-- [X] T009 [US1] `build_all_annotations` を `nekochan_suggest/annotations.py` で更新する — GIF 処理: `gif_first_frame_as_png_base64` 呼び出しを `gif_frames_as_png_base64_list(image_b64, gif_max_frames)` に置き換え、`logger.debug("Extracted %d frames from gif: %s", len(frames), name)` を追加、`generate_annotation(images=frames, gif_frame_count=len(frames))` に更新、非 GIF 画像は `generate_annotation(images=[image_b64])` として渡す、GIF 既存エントリの再生成：mimetype が `"image/gif"` の既存エントリは `existing_names` から除外してスキップしない（T005 テストが PASS になること）
+- [X] T009 [US1] `build_all_annotations` を `nekochan_suggest/annotations.py` で更新する — GIF 処理: `gif_first_frame_as_png_base64` 呼び出しを `gif_frames_as_png_base64_list(image_b64, gif_max_frames)` に置き換え、`logger.debug("Extracted %d frames from gif: %s", len(frames), name)` を追加、`generate_annotation(images=frames, gif_frame_count=len(frames))` に更新、非 GIF 画像は `generate_annotation(images=[image_b64])` として渡す、GIF 含む既存エントリはすべてスキップする（T005 テストが PASS になること）
 
 **Checkpoint**: `uv run pytest tests/test_annotations.py -v` が全テスト PASS、`NEKOCHAN_GIF_MAX_FRAMES` 未設定でのデフォルト動作確認
 
@@ -88,7 +88,7 @@ NEKOCHAN_GIF_MAX_FRAMES=2 nekochan-suggest build-annotations --dry-run
 - [X] T015 [P] `uv run ruff check . && uv run ruff format --check .` を実行し、指摘をすべて修正する
 - [X] T016 `uv run pytest tests/test_annotations.py --cov=nekochan_suggest/annotations --cov-report=term-missing` を実行し `gif_frames_as_png_base64_list` のカバレッジが 100% であることを確認する（SC-004）
 - [X] T017 変更した関数（`gif_frames_as_png_base64_list`、`_build_annotation_prompt`、`generate_annotation`、`build_all_annotations`）の docstring とインラインコメントが日本語で記述されていることを確認し、`gif_first_frame_as_png_base64` の docstring に deprecated 旨（代わりに `gif_frames_as_png_base64_list(gif_base64, 1)` を使用すること）を日本語で追記する（原則 V）
-- [ ] T018 [P] [US1] `nekochan-suggest build-annotations --dry-run` を実行し、出力された GIF 絵文字 5 件のアノテーションにアニメーション的な文脈（動き・反復動作の表現）が含まれていることを手動確認する（SC-002）
+- [X] T018 [P] [US1] `nekochan-suggest build-annotations --dry-run` を実行し、出力された GIF 絵文字 5 件のアノテーションにアニメーション的な文脈（動き・反復動作の表現）が含まれていることを手動確認する（SC-002）
 
 ---
 

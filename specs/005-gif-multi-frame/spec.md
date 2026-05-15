@@ -89,7 +89,7 @@ NEKOCHAN_GIF_MAX_FRAMES=2 nekochan-suggest build-annotations --dry-run
 - **FR-009**: `annotations.json` に保存する `image_base64` と `image_mimetype` は元の GIF データのまま保持されなければならない（変換後フレームは保存しない）。
 - **FR-010**: フレーム抽出エラーは既存のスキップ機構（ログ記録・警告）で処理されなければならない。
 - **FR-011**: GIF を複数フレームで処理する場合、LLM へのプロンプト先頭にアニメーションである旨とフレーム数を追記しなければならない（例: "These are N frames from an animated GIF emoji. "）。
-- **FR-012**: `build-annotations` 実行時、既存の GIF アノテーションエントリ（1フレーム方式で生成されたものを含む）はマルチフレーム方式で上書き再生成されなければならない。
+- **FR-012**: `build-annotations` 実行時、GIF を含むすべての既存アノテーションエントリはスキップされなければならない。再生成が必要な場合はアノテーションファイルから該当エントリを削除してから実行すること。
 
 ### Key Entities
 
