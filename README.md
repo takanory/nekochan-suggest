@@ -6,7 +6,7 @@ A CLI / GUI tool that suggests nekochan emoji filenames for a given text, using 
 
 ## Overview
 
-`nekochan-suggest` takes a piece of text and returns the most relevant [nekochan](https://github.com/nekochanapp/nekochan) emoji filenames, ranked by semantic similarity. Annotations are generated locally via [Ollama](https://ollama.com/) and embedding-based search is performed with [sentence-transformers](https://www.sbert.net/).
+`nekochan-suggest` takes a piece of text and returns the most relevant [nekochan](https://note.com/shikamatsu/n/nd217dc0617db) emoji filenames, ranked by semantic similarity. Annotations are generated locally via [Ollama](https://ollama.com/) and embedding-based search is performed with [sentence-transformers](https://www.sbert.net/).
 
 ## Installation
 
