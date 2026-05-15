@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -10,7 +9,6 @@ import pytest
 
 from nekochan_suggest import query
 from nekochan_suggest.query import SuggestionResult
-
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "annotations.json"
 
@@ -40,7 +38,7 @@ def test_cosine_similarity_known_dot_product() -> None:
     """既知のドット積から期待値どおりのスコアを返す。"""
     score = query._cosine_similarity([1.0, 1.0], [1.0, 0.0])
 
-    assert score == pytest.approx(2 ** -0.5)
+    assert score == pytest.approx(2**-0.5)
 
 
 def test_load_annotations_reads_fixture() -> None:
@@ -237,3 +235,37 @@ def _sample_annotations() -> list[dict[str, object]]:
         {"name": "kyukei-nya", "annotation": "rest", "embedding": [0.1, 0.9, 0.0]},
         {"name": "okoru-nya", "annotation": "angry", "embedding": [0.0, 0.0, 1.0]},
     ]
+
+
+# ---------------------------------------------------------------------------
+# _load_config() の gif_max_frames テスト — T010
+# ---------------------------------------------------------------------------
+
+
+class TestLoadConfigGifMaxFrames:
+    """_load_config() の gif_max_frames キーに関するテスト。"""
+
+    def test_default_gif_max_frames_is_four(self) -> None:
+        """環境変数未設定のとき gif_max_frames は '4' を返す。"""
+        import os
+        from unittest.mock import patch
+
+        from nekochan_suggest.query import _load_config
+
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("NEKOCHAN_GIF_MAX_FRAMES", None)
+            config = _load_config()
+
+        assert config["gif_max_frames"] == "4"
+
+    def test_env_var_overrides_gif_max_frames(self) -> None:
+        """NEKOCHAN_GIF_MAX_FRAMES=2 のとき gif_max_frames は '2' を返す。"""
+        import os
+        from unittest.mock import patch
+
+        from nekochan_suggest.query import _load_config
+
+        with patch.dict(os.environ, {"NEKOCHAN_GIF_MAX_FRAMES": "2"}):
+            config = _load_config()
+
+        assert config["gif_max_frames"] == "2"
