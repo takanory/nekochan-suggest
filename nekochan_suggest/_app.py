@@ -20,14 +20,15 @@ from nekochan_suggest.query import ANNOTATIONS_PATH, SuggestionResult, suggest
 _MAX_INPUT_LENGTH = 1000
 
 
-def get_image_bytes(name: str) -> bytes | None:
-    """annotations.json から name に対応する画像バイト列を返す。
+def get_image_bytes(name: str) -> tuple[bytes, str] | None:
+    """annotations.json から name に対応する画像バイト列と MIME タイプを返す。
 
     Args:
         name: 絵文字ファイル名（拡張子なし、例: "yatta-nya"）。
 
     Returns:
-        PNG 画像のバイト列。ファイルが存在しないか該当名が見つからない場合は None。
+        (画像バイト列, MIME タイプ) のタプル。
+        ファイルが存在しないか該当名が見つからない場合は None。
     """
     if not ANNOTATIONS_PATH.exists():
         return None
@@ -36,8 +37,9 @@ def get_image_bytes(name: str) -> bytes | None:
     for record in records:
         if record.get("name") == name:
             b64 = record.get("image_base64")
+            mimetype = record.get("image_mimetype", "image/png")
             if isinstance(b64, str) and b64:
-                return base64.b64decode(b64)
+                return base64.b64decode(b64), str(mimetype)
     return None
 
 
@@ -135,9 +137,19 @@ def render_app() -> None:  # pragma: no cover
             return
 
         for result in results:
-            image_bytes = get_image_bytes(result.name)
-            if image_bytes is not None:
-                st.image(image_bytes, width=64)
+            image_result = get_image_bytes(result.name)
+            if image_result is not None:
+                image_bytes, mimetype = image_result
+                if mimetype == "image/gif":
+                    # GIF は st.image() だと最初のフレームしか表示されないため
+                    # HTML img タグでアニメーションとして埋め込む
+                    b64_str = base64.b64encode(image_bytes).decode()
+                    st.markdown(
+                        f'<img src="data:image/gif;base64,{b64_str}" width="64">',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.image(image_bytes, width=64)
             st.write(f"**{result.name}** — score: {result.score:.3f}")
             st.markdown("---")
 

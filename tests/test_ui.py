@@ -37,7 +37,7 @@ class TestGetImageBytes:
     def test_returns_image_bytes_when_found(  # noqa: E501
         self, tmp_path: pytest.TempPathFactory
     ) -> None:
-        """name が一致するエントリの画像バイト列を返すことを確認する。"""
+        """name が一致するエントリの画像バイト列と MIME タイプを返すことを確認する。"""
         import base64
         import json
 
@@ -57,7 +57,7 @@ class TestGetImageBytes:
         with patch("nekochan_suggest._app.ANNOTATIONS_PATH", fake_path):
             result = get_image_bytes("yatta-nya")
 
-        assert result == png_bytes
+        assert result == (png_bytes, "image/png")
 
     def test_returns_none_when_name_not_found(  # noqa: E501
         self, tmp_path: pytest.TempPathFactory
