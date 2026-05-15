@@ -498,8 +498,8 @@ class TestBuildAllAnnotations:
         assert record["image_base64"] == "R0l="
         assert record["image_mimetype"] == "image/gif"
 
-    def test_gif_existing_entry_is_regenerated(self, mock_deps: dict) -> None:
-        """既存 GIF エントリはスキップされず再生成される（FR-012）。"""
+    def test_gif_existing_entry_is_skipped(self, mock_deps: dict) -> None:
+        """既存 GIF エントリはスキップされる（FR-012）。"""
         mock_deps["load"].return_value = [
             {
                 "name": "yatta-nya",
@@ -522,8 +522,8 @@ class TestBuildAllAnnotations:
         ):
             build_all_annotations(dry_run=False, config=_SAMPLE_CONFIG)
 
-        # GIF 既存エントリは再生成される（save が呼ばれる）
-        assert mock_deps["gen"].call_count == 1
+        # GIF 既存エントリもスキップされる（generate_annotation は呼ばれない）
+        assert mock_deps["gen"].call_count == 0
 
     def test_png_image_passed_as_single_image_list(self, mock_deps: dict) -> None:
         """PNG 画像は単一要素の images リストとして LLM に渡される。"""

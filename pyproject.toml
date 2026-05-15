@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "nekochan-suggest"
 version = "0.1.0"
-description = "文章に対してネコチャン絵文字を提案するCLIツール"
+description = "CLI tool to suggest nekochan emoji filenames for a given text."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
