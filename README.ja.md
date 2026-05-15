@@ -6,7 +6,7 @@
 
 ## 概要
 
-`nekochan-suggest` はテキストを入力として受け取り、意味的に最も近い [nekochan](https://github.com/nekochanapp/nekochan) 絵文字のファイル名を類似度順に返します。アノテーションは [Ollama](https://ollama.com/) を使用してローカルで生成し、検索には [sentence-transformers](https://www.sbert.net/) による埋め込みベクトルを使用します。
+`nekochan-suggest` はテキストを入力として受け取り、意味的に最も近い [nekochan](https://note.com/shikamatsu/n/nd217dc0617db) 絵文字のファイル名を類似度順に返します。アノテーションは [Ollama](https://ollama.com/) を使用してローカルで生成し、検索には [sentence-transformers](https://www.sbert.net/) による埋め込みベクトルを使用します。
 
 ## インストール
 
