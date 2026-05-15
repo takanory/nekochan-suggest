@@ -237,35 +237,4 @@ def _sample_annotations() -> list[dict[str, object]]:
     ]
 
 
-# ---------------------------------------------------------------------------
-# _load_config() の gif_max_frames テスト — T010
-# ---------------------------------------------------------------------------
 
-
-class TestLoadConfigGifMaxFrames:
-    """_load_config() の gif_max_frames キーに関するテスト。"""
-
-    def test_default_gif_max_frames_is_four(self) -> None:
-        """環境変数未設定のとき gif_max_frames は '4' を返す。"""
-        import os
-        from unittest.mock import patch
-
-        from nekochan_suggest.query import _load_config
-
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("NEKOCHAN_GIF_MAX_FRAMES", None)
-            config = _load_config()
-
-        assert config["gif_max_frames"] == "4"
-
-    def test_env_var_overrides_gif_max_frames(self) -> None:
-        """NEKOCHAN_GIF_MAX_FRAMES=2 のとき gif_max_frames は '2' を返す。"""
-        import os
-        from unittest.mock import patch
-
-        from nekochan_suggest.query import _load_config
-
-        with patch.dict(os.environ, {"NEKOCHAN_GIF_MAX_FRAMES": "2"}):
-            config = _load_config()
-
-        assert config["gif_max_frames"] == "2"

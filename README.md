@@ -1,44 +1,54 @@
 # nekochan-suggest
 
-文章に合ったネコチャン絵文字のファイル名を提案する CLI / GUI ツール。
+> For Japanese documentation, see [README.ja.md](README.ja.md).
 
-> **Note**: コアロジック（埋め込み検索・LLM アノテーション）は別フィーチャー
-> `001-nekochan-suggest` で実装予定。現バージョンはプロジェクト初期化スタブです。
+A CLI / GUI tool that suggests nekochan emoji filenames for a given text, using local LLM annotation and semantic search.
 
-## インストール
+## Overview
 
-[uv](https://docs.astral.sh/uv/) が必要です。
+`nekochan-suggest` takes a piece of text and returns the most relevant [nekochan](https://github.com/nekochanapp/nekochan) emoji filenames, ranked by semantic similarity. Annotations are generated locally via [Ollama](https://ollama.com/) and embedding-based search is performed with [sentence-transformers](https://www.sbert.net/).
+
+## Installation
+
+Requires [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# 開発用依存関係も含めてインストール
+# Install with development dependencies
 uv sync
 ```
 
-GUI（Streamlit）を使用する場合:
+To use the GUI (Streamlit):
 
 ```bash
 uv sync --extra gui
 ```
 
-## 使い方
+## Usage
 
 ### CLI
 
 ```bash
-# テキストから絵文字を提案（スタブ: 未実装メッセージを表示）
-nekochan-suggest "今日はとても眠い"
+# Suggest emojis for a text
+nekochan-suggest "I'm so sleepy today"
 
-# 候補数を指定
-nekochan-suggest --count 5 "今日はとても眠い"
+# Specify the number of suggestions (default: 3)
+nekochan-suggest --count 5 "I'm so sleepy today"
 
-# JSON 形式で出力（スタブ）
-nekochan-suggest --json "今日はとても眠い"
+# Output results in JSON format
+nekochan-suggest --json "I'm so sleepy today"
 
-# アノテーションをビルド（スタブ）
+# Build (or rebuild) the annotation index
 nekochan-suggest build-annotations
 
-# ヘルプ
+# Preview the first 3 annotations without saving (dry run)
+nekochan-suggest build-annotations --dry-run
+
+# Set HTTP timeout for Ollama requests
+nekochan-suggest build-annotations --timeout 60
+
+# Show help
 nekochan-suggest --help
+nekochan-suggest build-annotations --help
 ```
 
 ### GUI
@@ -47,25 +57,41 @@ nekochan-suggest --help
 nekochan-suggest-ui
 ```
 
-## 開発
+### Prerequisites for `build-annotations`
+
+1. Install and start [Ollama](https://ollama.com/):
+   ```bash
+   ollama serve
+   ollama pull gemma4:e4b
+   ```
+2. Run the annotation build (this may take a while on first run):
+   ```bash
+   nekochan-suggest build-annotations
+   ```
+
+Annotations are stored at `~/.local/share/nekochan-suggest/annotations.json`.  
+To regenerate a specific emoji, remove its entry from the file and re-run `build-annotations`.
+
+## Development
 
 ```bash
-# リンティング
+# Linting
 make lint
 
-# フォーマット
+# Formatting
 make format
 
-# 型検査
+# Type checking
 make typecheck
 
-# テスト
+# Tests
 make test
 
-# 全チェック（CI 相当）
+# All checks (CI equivalent)
 make check
 ```
 
-## ライセンス
+## License
 
-[LICENSE](LICENSE) を参照してください。
+See [LICENSE](LICENSE).
+

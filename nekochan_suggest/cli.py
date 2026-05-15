@@ -23,13 +23,13 @@ def _build_query_parser() -> argparse.ArgumentParser:
     """テキストクエリ用パーサーを構築して返す。"""
     parser = argparse.ArgumentParser(
         prog="nekochan-suggest",
-        description="文章に対してネコチャン絵文字のファイル名を提案するツール。",
+        description="Suggest nekochan emoji filenames for a given text.",
     )
     parser.add_argument(
         "text",
         nargs="?",
         metavar="TEXT",
-        help="絵文字提案を求めるテキスト。省略時は標準入力から読み取る。",
+        help="Text to suggest emojis for. Reads from stdin if omitted.",
     )
     parser.add_argument(
         "--count",
@@ -37,12 +37,12 @@ def _build_query_parser() -> argparse.ArgumentParser:
         type=int,
         default=3,
         metavar="N",
-        help="返す候補数（1〜10）。デフォルト: 3。",
+        help="Number of suggestions to return (1-10). Default: 3.",
     )
     parser.add_argument(
         "--json",
         action="store_true",
-        help="結果をJSON形式で標準出力に出力する。",
+        help="Output results in JSON format to stdout.",
     )
     return parser
 
@@ -51,12 +51,12 @@ def _build_build_annotations_parser() -> argparse.ArgumentParser:
     """build-annotations サブコマンド用パーサーを構築して返す。"""
     parser = argparse.ArgumentParser(
         prog="nekochan-suggest build-annotations",
-        description="全絵文字のアノテーションを生成・保存する。",
+        description="Generate and save annotations for all emojis.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="ファイルを保存せず、先頭3件のアノテーションをプレビュー表示する。",
+        help="Preview the first 3 annotations without saving to file.",
     )
     parser.add_argument(
         "--timeout",
@@ -64,7 +64,7 @@ def _build_build_annotations_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         metavar="SECONDS",
-        help="HTTP タイムアウト秒数。設定ファイル・環境変数より優先される。",
+        help="HTTP timeout in seconds. Overrides config file and environment variable.",
     )
     return parser
 
