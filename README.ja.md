@@ -8,6 +8,8 @@
 
 `nekochan-suggest` はテキストを入力として受け取り、意味的に最も近い [nekochan](https://note.com/shikamatsu/n/nd217dc0617db) 絵文字のファイル名を類似度順に返します。アノテーションは [Ollama](https://ollama.com/) を使用してローカルで生成し、検索には [sentence-transformers](https://www.sbert.net/) による埋め込みベクトルを使用します。
 
+![nekochan-suggest-ui](nekochan-suggest-ui.gif)
+
 ## インストール
 
 [uv](https://docs.astral.sh/uv/) が必要です。
